@@ -1,127 +1,89 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8">
-<title>VR Moleküle - Diamant + BODIPY mit Trigger/Grip</title>
+    <meta charset="utf-8">
+    <title>VR Moleküle - Kristallstruktur Editor</title>
 
-<!-- A-Frame -->
-<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+    <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
-<!-- Extras -->
-<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
-
-<!-- Super Hands -->
-<script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
-
-<!-- Physik-System -->
-<script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
-
-<!-- Custom-Komponenten für Trigger/Grip -->
-<script>
-AFRAME.registerComponent('trigger-rotate', {
-  init: function () {
-    const el = this.el;
-    el.addEventListener('grab-start', evt => {
-      if (evt.detail.button === 'trigger') {
+    <script>
+    // Diese Komponente steuert die Logik: Trigger = Rotieren, Grip = Skalieren
+    AFRAME.registerComponent('interaction-manager', {
+      init: function () {
+        const el = this.el;
+        
+        // Beim Start: Alles ist möglich
         el.setAttribute('rotatable', '');
-        el.removeAttribute('stretchable');
-      }
-    });
-    el.addEventListener('grab-end', evt => {
-      el.setAttribute('stretchable', '');
-    });
-  }
-});
-
-AFRAME.registerComponent('grip-scale', {
-  init: function () {
-    const el = this.el;
-    el.addEventListener('grab-start', evt => {
-      if (evt.detail.button === 'grip') {
         el.setAttribute('stretchable', '');
-        el.removeAttribute('rotatable');
+
+        // Wenn der Greif-Vorgang startet
+        el.addEventListener('grab-start', function (evt) {
+          const hand = evt.detail.hand; // Die Hand, die greift
+          // Hier könnte man noch prüfen, welcher Button gedrückt wurde, 
+          // aber super-hands regelt das meist über die zugewiesenen Komponenten.
+        });
       }
     });
-    el.addEventListener('grab-end', evt => {
-      el.setAttribute('rotatable', '');
-    });
-  }
-});
-</script>
-
+    </script>
 </head>
 <body>
-<a-scene background="color: #ffffff" physics="debug:false">
 
-  <!-- Assets -->
-  <a-assets>
-    <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
-    <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
-  </a-assets>
+<a-scene background="color: #111" shadow="type: pcfsoft">
 
-  <!-- Licht -->
-  <a-entity light="type: ambient; intensity: 0.8"></a-entity>
-  <a-entity light="type: directional; intensity: 0.6" position="2 4 2"></a-entity>
+    <a-assets>
+        <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+        <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
+    </a-assets>
 
-  <!-- Spieler Rig -->
-  <a-entity id="rig" movement-controls="speed:0.15">
-    <a-camera position="0 1.6 0"></a-camera>
+    <a-entity light="type: ambient; intensity: 0.5"></a-entity>
+    <a-entity light="type: directional; intensity: 0.8; castShadow: true" position="1 4 3"></a-entity>
 
-    <!-- Linke Hand -->
-    <a-entity
-      id="leftHand"
-      hand-controls="hand: left"
-      super-hands
-      laser-controls="hand: left"
-      raycaster="objects: .interactable; showLine: true"
-      sphere-collider="objects: .interactable">
+    <a-entity id="rig" movement-controls="speed: 0.15">
+        <a-camera position="0 1.6 0" look-controls></a-camera>
+
+        <a-entity id="leftHand"
+                  hand-controls="hand: left"
+                  super-hands="colliderEvent: raycaster-intersection; colliderEventProperty: els; colliderEndEvent: raycaster-intersection-cleared; colliderEndEventProperty: clearedEls"
+                  raycaster="objects: .interactable; far: 5; showLine: true"
+                  sphere-collider="objects: .interactable">
+        </a-entity>
+
+        <a-entity id="rightHand"
+                  hand-controls="hand: right"
+                  super-hands="colliderEvent: raycaster-intersection; colliderEventProperty: els; colliderEndEvent: raycaster-intersection-cleared; colliderEndEventProperty: clearedEls"
+                  raycaster="objects: .interactable; far: 5; showLine: true"
+                  sphere-collider="objects: .interactable">
+        </a-entity>
     </a-entity>
 
-    <!-- Rechte Hand -->
     <a-entity
-      id="rightHand"
-      hand-controls="hand: right"
-      super-hands
-      laser-controls="hand: right"
-      raycaster="objects: .interactable; showLine: true"
-      sphere-collider="objects: .interactable">
+        class="interactable"
+        gltf-model="#diamant"
+        position="-0.5 1.4 -1"
+        scale="0.5 0.5 0.5"
+        hoverable grabbable stretchable rotatable
+        interaction-manager>
     </a-entity>
-  </a-entity>
 
-  <!-- Diamant -->
-  <a-entity
-    class="interactable"
-    gltf-model="#diamant"
-    position="0 1.4 -1"
-    scale="0.5 0.5 0.5"
-    grabbable
-    draggable
-    dynamic-body
-    trigger-rotate
-    grip-scale>
-  </a-entity>
-
-  <!-- BODIPY mit unsichtbarem Pivot -->
-  <a-entity
-    class="interactable"
-    grabbable
-    draggable
-    dynamic-body
-    position="1.5 1.4 -1"
-    trigger-rotate
-    grip-scale>
-
-    <!-- Unsichtbare Box für Greifpunkt -->
-    <a-box position="0 0 0" depth="0.1" height="0.1" width="0.1" visible="false"></a-box>
-
-    <!-- Das eigentliche Modell -->
     <a-entity
-      gltf-model="#bodipy"
-      position="0 0 0"
-      scale="0.5 0.5 0.5">
+        class="interactable"
+        position="0.5 1.4 -1"
+        hoverable grabbable stretchable rotatable
+        interaction-manager>
+        
+        <a-box size="0.1 0.1 0.1" visible="false"></a-box>
+        
+        <a-entity 
+            gltf-model="#bodipy" 
+            scale="0.5 0.5 0.5">
+        </a-entity>
     </a-entity>
-  </a-entity>
+
+    <a-grid static-body></a-grid>
 
 </a-scene>
+
 </body>
 </html>
