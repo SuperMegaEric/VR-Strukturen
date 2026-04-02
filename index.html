@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+
+<!-- Titel im Browser -->
+<title>VR Chemie Turnhalle</title>
+
+<!-- A-Frame VR Engine -->
+<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+
+<!-- Zusatzbibliothek für Bewegung / Teleportation -->
+<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+
+<!-- Interaktion (Greifen, Drehen, Skalieren) -->
+<script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
+
+</head>
+
+<body>
+
+<!--
+Die gesamte VR-Szene befindet sich innerhalb von <a-scene>.
+
+background bestimmt die Farbe des Himmels.
+Ein helles Blau wirkt natürlicher als ein schwarzer Hintergrund.
+-->
+
+<a-scene background="color: #cfe8ff" renderer="antialias: true">
+
+<!-- ===================================================== -->
+<!-- ASSETS (Modelle werden vorgeladen) -->
+<!-- ===================================================== -->
+
+<!--
+Hier werden deine GLB Dateien eingebunden.
+Sie müssen im gleichen Ordner wie die index.html liegen.
+-->
+
+<a-assets>
+
+<a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+<a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
+<a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
+<a-asset-item id="eis" src="Eis.glb"></a-asset-item>
+<a-asset-item id="mgcl2" src="MgCl2.glb"></a-asset-item>
+<a-asset-item id="mof" src="MOF.glb"></a-asset-item>
+
+</a-assets>
+
+
+<!-- ===================================================== -->
+<!-- LICHT -->
+<!-- ===================================================== -->
+
+<!--
+Ambient Light = gleichmäßiges Grundlicht im Raum.
+Ohne dieses Licht wären viele Objekte sehr dunkel.
+-->
+
+<a-entity light="type: ambient; intensity: 0.4"></a-entity>
+
+<!--
+Directional Light simuliert Sonnenlicht durch die Fenster.
+-->
+
+<a-entity light="type: directional; intensity: 0.8" position="5 10 5"></a-entity>
+
+
+
+<!-- ===================================================== -->
+<!-- TURNHALLENBODEN -->
+<!-- ===================================================== -->
+
+<!--
+rotation="-90 0 0" dreht die Fläche horizontal.
+
+width und height geben die Größe des Bodens an.
+40 bedeutet etwa 40 Meter.
+-->
+
+<a-plane
+rotation="-90 0 0"
+width="40"
+height="40"
+color="#c68642"
+material="repeat:20 20">
+</a-plane>
+
+
+
+<!-- ===================================================== -->
+<!-- WÄNDE -->
+<!-- ===================================================== -->
+
+<!-- Rückwand -->
+
+<a-box position="0 5 -20" width="40" height="10" depth="0.5" color="#eeeeee"></a-box>
+
+<!-- linke Wand -->
+
+<a-box position="-20 5 0" width="0.5" height="10" depth="40" color="#e5e5e5"></a-box>
+
+<!-- rechte Wand -->
+
+<a-box position="20 5 0" width="0.5" height="10" depth="40" color="#e5e5e5"></a-box>
+
+
+
+<!-- ===================================================== -->
+<!-- FENSTER -->
+<!-- ===================================================== -->
+
+<!--
+Fenster sind halbtransparente Flächen.
+opacity bestimmt die Transparenz.
+-->
+
+<a-plane position="-10 6 -19.7" width="6" height="3" color="#a8d0ff" opacity="0.7"></a-plane>
+<a-plane position="10 6 -19.7" width="6" height="3" color="#a8d0ff" opacity="0.7"></a-plane>
+
+<a-plane position="-19.7 6 -10" rotation="0 90 0" width="6" height="3" color="#a8d0ff" opacity="0.7"></a-plane>
+<a-plane position="-19.7 6 10" rotation="0 90 0" width="6" height="3" color="#a8d0ff" opacity="0.7"></a-plane>
+
+
+
+<!-- ===================================================== -->
+<!-- DECKENLAMPEN -->
+<!-- ===================================================== -->
+
+<a-sphere position="-10 9 -10" radius="0.4" color="#ffffff"></a-sphere>
+<a-sphere position="10 9 -10" radius="0.4" color="#ffffff"></a-sphere>
+<a-sphere position="-10 9 10" radius="0.4" color="#ffffff"></a-sphere>
+<a-sphere position="10 9 10" radius="0.4" color="#ffffff"></a-sphere>
+
+<a-entity light="type: point; intensity: 0.4" position="-10 9 -10"></a-entity>
+<a-entity light="type: point; intensity: 0.4" position="10 9 -10"></a-entity>
+<a-entity light="type: point; intensity: 0.4" position="-10 9 10"></a-entity>
+<a-entity light="type: point; intensity: 0.4" position="10 9 10"></a-entity>
+
+
+
+<!-- ===================================================== -->
+<!-- SPIELER -->
+<!-- ===================================================== -->
+
+<a-entity id="rig" movement-controls="speed:0.15">
+
+<!--
+Kamera = Augen des Nutzers
+
+position="x y z"
+
+x = links / rechts
+y = Höhe
+z = vorne / hinten
+
+1.6 entspricht etwa Augenhöhe eines Menschen.
+-->
+
+<a-camera id="camera" position="0 1.6 8" look-controls></a-camera>
+
+<!-- linker Controller -->
+
+<a-entity
+hand-controls="hand: left"
+laser-controls="hand: left"
+super-hands
+teleport-controls="cameraRig: #rig; teleportOrigin: #camera;">
+</a-entity>
+
+<!-- rechter Controller -->
+
+<a-entity
+hand-controls="hand: right"
+laser-controls="hand: right"
+super-hands>
+</a-entity>
+
+</a-entity>
+
+
+
+<!-- ===================================================== -->
+<!-- MOLEKÜL-PODESTE -->
+<!-- ===================================================== -->
+
+<!--
+Jedes Podest besteht aus:
+
+1 Zylinder = Podest
+1 Molekülmodell
+1 Textlabel
+
+position="x y z"
+
+x = links/rechts
+z = vor/zurück
+-->
+
+
+
+<!-- Diamant -->
+
+<a-entity position="-10 2 -5">
+
+
+<a-entity
+gltf-model="#diamant"
+position="0 1 0"
+scale="0.6 0.6 0.6"
+grabbable stretchable draggable rotatable>
+</a-entity>
+
+<a-text value="Diamant" position="0 2 0" align="center"></a-text>
+
+</a-entity>
+
+
+
+<!-- Graphit -->
+
+<a-entity position="0 2 -5">
+
+
+
+<a-entity
+gltf-model="#graphit"
+position="0 1 0"
+scale="0.4 0.4 0.4"
+grabbable stretchable draggable rotatable>
+</a-entity>
+
+<a-text value="Graphit" position="0 2 0" align="center"></a-text>
+
+</a-entity>
+
+
+
+<!-- Imidazol -->
+
+<a-entity position="10 2 -5">
+
+
+
+<a-entity
+gltf-model="#imidazol"
+position="0 1 0"
+scale="0.3 0.3 0.3"
+grabbable stretchable draggable rotatable>
+</a-entity>
+
+<a-text value="Imidazol" position="0 2 0" align="center"></a-text>
+
+</a-entity>
+
+
+
+<!-- Eis -->
+
+<a-entity position="-10 2 6">
+
+
+<a-entity
+gltf-model="#eis"
+position="0 1 5"
+scale="0.5 0.5 0.5"
+grabbable stretchable draggable rotatable>
+</a-entity>
+
+<a-text value="Eis (Ice)" position="0 2 5" align="center"></a-text>
+
+</a-entity>
+
+
+
+<!-- MgCl2 -->
+
+<a-entity position="0 1 6">
+
+
+
+<a-entity
+gltf-model="#mgcl2"
+position="0 1 5"
+scale="0.4 0.4 0.4"
+grabbable stretchable draggable rotatable>
+</a-entity>
+
+<a-text value="MgCl2" position="0 2 5" align="center"></a-text>
+
+</a-entity>
+
+
+
+<!-- MOF -->
+
+<a-entity position="15 1 6">
+
+
+<a-entity
+gltf-model="#mof"
+position="0 2 5"
+scale="0.2 0.2 0.2"
+grabbable stretchable draggable rotatable>
+</a-entity>
+
+<a-text value="MOF" position="0 2 0" align="center"></a-text>
+
+</a-entity>
+
+
+
+</a-scene>
+
+</body>
+</html>
