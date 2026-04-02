@@ -2,84 +2,89 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>VR Kristall-Editor - Rotation Fix</title>
+    <title>VR Kristall-Editor - Parenting Fix</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
     <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
     <script>
-      // Diese Komponente erzwingt, dass das Objekt der Rotation des Controllers folgt
-      AFRAME.registerComponent('force-rotate', {
+      AFRAME.registerComponent('snap-to-hand', {
         init: function () {
-          this.grabbingHand = null;
-
-          // Event: Wenn das Objekt gegriffen wird
           this.el.addEventListener('grab-start', (evt) => {
-            this.grabbingHand = evt.detail.hand;
+            const hand = evt.detail.hand;
+            
+            // Physik kurz deaktivieren, damit sie nicht gegen die Hand kämpft
+            if (this.el.body) {
+                this.el.body.type = 0; // Setzt Körper auf 'Static'
+            }
+
+            // Das Objekt wird ein Kind des Controllers -> 1:1 Rotation & Position
+            hand.appendChild(this.el);
+            
+            // Position auf 0 0 0 setzen, damit es genau am Controller klebt
+            // (Oder einen Offset lassen, falls gewünscht)
+            this.el.setAttribute('position', '0 0 0');
           });
 
-          // Event: Wenn das Objekt losgelassen wird
-          this.el.addEventListener('grab-end', () => {
-            this.grabbingHand = null;
-          });
-        },
+          this.el.addEventListener('grab-end', (evt) => {
+            const sceneEl = this.el.sceneEl;
+            
+            // Welt-Position und Rotation speichern, bevor wir ausparenter
+            const worldPos = new THREE.Vector3();
+            this.el.object3D.getWorldPosition(worldPos);
+            const worldQuat = new THREE.Quaternion();
+            this.el.object3D.getWorldQuaternion(worldQuat);
 
-        tick: function () {
-          // Wenn eine Hand das Objekt hält, kopiere deren Rotation
-          if (this.grabbingHand) {
-            const handRotation = this.grabbingHand.getAttribute('rotation');
-            // Wir setzen die Rotation des Objekts direkt auf die der Hand
-            this.el.setAttribute('rotation', handRotation);
-          }
+            // Zurück in die Szene schieben
+            sceneEl.appendChild(this.el);
+
+            // Welt-Werte wieder anwenden
+            this.el.object3D.position.copy(worldPos);
+            this.el.object3D.applyQuaternion(worldQuat);
+
+            // Physik wieder auf Kinematic setzen
+            if (this.el.body) {
+                this.el.body.type = 4; // Zurück auf 'Kinematic'
+            }
+          });
         }
       });
     </script>
 </head>
 <body>
 
-    <a-scene physics="debug: false; gravity: -9.8">
+    <a-scene physics="debug: false">
         <a-assets>
             <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
             <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
         </a-assets>
 
-        <a-entity id="rig" movement-controls="speed: 0.15">
+        <a-entity id="rig">
             <a-camera position="0 1.6 0"></a-camera>
             
-            <a-entity id="leftHand"
-                      hand-controls="hand: left"
-                      super-hands
-                      sphere-collider="objects: .interactable">
-            </a-entity>
+            <a-entity id="leftHand" hand-controls="hand: left" super-hands sphere-collider="objects: .interactable"></a-entity>
 
-            <a-entity id="rightHand"
-                      hand-controls="hand: right"
-                      super-hands
-                      sphere-collider="objects: .interactable">
-            </a-entity>
+            <a-entity id="rightHand" hand-controls="hand: right" super-hands sphere-collider="objects: .interactable"></a-entity>
         </a-entity>
 
-        <a-plane static-body rotation="-90 0 0" width="20" height="20" color="#222"></a-plane>
+        <a-plane static-body rotation="-90 0 0" width="20" height="20" color="#333"></a-plane>
 
         <a-entity
             class="interactable"
             gltf-model="#diamant"
             position="-0.5 1.4 -1"
             scale="0.5 0.5 0.5"
-            hoverable grabbable stretchable
             kinematic-body
-            force-rotate> 
+            snap-to-hand> 
         </a-entity>
 
         <a-entity
             class="interactable"
             position="0.5 1.4 -1"
-            hoverable grabbable stretchable
             kinematic-body
-            force-rotate>
-            
-            <a-box width="0.3" height="0.3" depth="0.3" visible="false"></a-box>
+            snap-to-hand>
+            <a-box width="0.2" height="0.2" depth="0.2" visible="false"></a-box>
             <a-entity gltf-model="#bodipy" scale="0.5 0.5 0.5"></a-entity>
         </a-entity>
 
