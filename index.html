@@ -22,6 +22,8 @@
   <!-- Assets -->
   <a-assets>
     <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+      <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+  <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
   </a-assets>
 
   <!-- Licht -->
@@ -49,18 +51,31 @@
     </a-entity>
   </a-entity>
 
-  <!-- Diamant -->
-  <a-entity
-    class="interactable"
-    gltf-model="#diamant"
-    position="0 1.4 -1"
-    scale="0.5 0.5 0.5"
-    grabbable
-    stretchable
-    draggable
-    rotatable
-    dynamic-body>
-  </a-entity>
+<!-- Diamant -->
+<a-entity
+  class="interactable"
+  gltf-model="#diamant"
+  position="0 1.4 -1"
+  scale="0.5 0.5 0.5"
+  grabbable
+  stretchable
+  draggable
+  rotatable
+  dynamic-body>
+</a-entity>
+
+<!-- BODIPY neben Diamant -->
+<a-entity
+  class="interactable"
+  gltf-model="#bodipy"
+  position="1 1.4 -1" <!-- Abstand x=1 -->
+  scale="0.5 0.5 0.5"
+  grabbable
+  stretchable
+  draggable
+  rotatable
+  dynamic-body>
+</a-entity>
 
 </a-scene>
 </body>
