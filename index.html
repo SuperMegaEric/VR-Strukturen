@@ -12,9 +12,9 @@
 
 <!-- Interaktion -->
 <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
-
+<script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
 </head>
-
+<a-scene physics="debug: false">
 <body>
 
 <!--
@@ -59,26 +59,43 @@ Keine Umgebung – nur Moleküle
 
 <a-camera position="0 1.6 3"></a-camera>
 
-<!-- linker Controller -->
+<!-- Controller -->
 
 <a-entity
-hand-controls="hand: left"
-laser-controls="hand: left"
-raycaster="objects: .clickable"
-super-hands>
+  id="leftHand"
+  hand-controls="hand: left"
+  super-hands
+  sphere-collider="objects: .interactable"
+  raycaster="objects: .interactable">
 </a-entity>
-
-<!-- rechter Controller -->
 
 <a-entity
-hand-controls="hand: right"
-laser-controls="hand: right"
-raycaster="objects: .clickable"
-super-hands>
+  id="rightHand"
+  hand-controls="hand: right"
+  super-hands
+  sphere-collider="objects: .interactable"
+  raycaster="objects: .interactable">
 </a-entity>
 
-</a-entity>
 
+<a-entity id="rig" movement-controls="speed:0.15">
+  <a-camera position="0 1.6 0">
+    <a-entity
+      id="leftHand"
+      hand-controls="hand: left"
+      super-hands
+      sphere-collider="objects: .interactable">
+    </a-entity>
+    <a-entity
+      id="rightHand"
+      hand-controls="hand: right"
+      super-hands
+      sphere-collider="objects: .interactable">
+    </a-entity>
+  </a-camera>
+</a-entity>
+  
+  
 
 <!-- =============================== -->
 <!-- Moleküle -->
@@ -87,14 +104,15 @@ super-hands>
 <!-- Diamant -->
 
 <a-entity
-class="clickable"
-gltf-model="#diamant"
-position="0 1.4 -1"
-scale="0.5 0.5 0.5"
-grabbable
-stretchable
-draggable
-rotatable>
+  class="interactable"
+  gltf-model="#diamant"
+  position="0 1.4 -1"
+  scale="0.5 0.5 0.5"
+  grabbable
+  stretchable
+  draggable
+  rotatable
+  dynamic-body>
 </a-entity>
 
 
