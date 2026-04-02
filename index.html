@@ -2,41 +2,68 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>VR Moleküle - Diamant + BODIPY</title>
+<title>VR Moleküle - Diamant + BODIPY mit Trigger/Grip</title>
 
-<!-- A-Frame Engine -->
+<!-- A-Frame -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-<!-- Extras für Bewegung -->
+<!-- Extras -->
 <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 
-<!-- Super Hands für Greifen/Interaktion -->
+<!-- Super Hands -->
 <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
 <!-- Physik-System -->
 <script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
 
+<!-- Custom-Komponenten für Trigger/Grip -->
+<script>
+AFRAME.registerComponent('trigger-rotate', {
+  init: function () {
+    const el = this.el;
+    el.addEventListener('grab-start', evt => {
+      if (evt.detail.button === 'trigger') {
+        el.setAttribute('rotatable', '');
+        el.removeAttribute('stretchable');
+      }
+    });
+    el.addEventListener('grab-end', evt => {
+      el.setAttribute('stretchable', '');
+    });
+  }
+});
+
+AFRAME.registerComponent('grip-scale', {
+  init: function () {
+    const el = this.el;
+    el.addEventListener('grab-start', evt => {
+      if (evt.detail.button === 'grip') {
+        el.setAttribute('stretchable', '');
+        el.removeAttribute('rotatable');
+      }
+    });
+    el.addEventListener('grab-end', evt => {
+      el.setAttribute('rotatable', '');
+    });
+  }
+});
+</script>
+
 </head>
 <body>
 <a-scene background="color: #ffffff" physics="debug:false">
 
-  <!-- ==================== -->
   <!-- Assets -->
-  <!-- ==================== -->
   <a-assets>
     <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
     <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
   </a-assets>
 
-  <!-- ==================== -->
   <!-- Licht -->
-  <!-- ==================== -->
   <a-entity light="type: ambient; intensity: 0.8"></a-entity>
   <a-entity light="type: directional; intensity: 0.6" position="2 4 2"></a-entity>
 
-  <!-- ==================== -->
   <!-- Spieler Rig -->
-  <!-- ==================== -->
   <a-entity id="rig" movement-controls="speed:0.15">
     <a-camera position="0 1.6 0"></a-camera>
 
@@ -61,34 +88,30 @@
     </a-entity>
   </a-entity>
 
-  <!-- ==================== -->
   <!-- Diamant -->
-  <!-- ==================== -->
   <a-entity
     class="interactable"
     gltf-model="#diamant"
     position="0 1.4 -1"
     scale="0.5 0.5 0.5"
     grabbable
-    stretchable
     draggable
-    rotatable
-    dynamic-body>
+    dynamic-body
+    trigger-rotate
+    grip-scale>
   </a-entity>
 
-  <!-- ==================== -->
-  <!-- BODIPY mit zentriertem Greif-Pivot -->
-  <!-- ==================== -->
+  <!-- BODIPY mit unsichtbarem Pivot -->
   <a-entity
     class="interactable"
     grabbable
-    stretchable
     draggable
-    rotatable
     dynamic-body
-    position="1.5 1.4 -1"> <!-- Abstand X=1.5m vom Diamant -->
-    
-    <!-- Unsichtbare Box als Pivot / Greifpunkt -->
+    position="1.5 1.4 -1"
+    trigger-rotate
+    grip-scale>
+
+    <!-- Unsichtbare Box für Greifpunkt -->
     <a-box position="0 0 0" depth="0.1" height="0.1" width="0.1" visible="false"></a-box>
 
     <!-- Das eigentliche Modell -->
