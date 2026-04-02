@@ -2,43 +2,51 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>VR Kristall-Editor - Physik Setup</title>
-
+    <title>VR Kristall-Editor - Rotation Fix</title>
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
-    
     <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
     <script>
-      // Management-Komponente für die Interaktion
-      AFRAME.registerComponent('interaction-logic', {
+      // Diese Komponente erzwingt, dass das Objekt der Rotation des Controllers folgt
+      AFRAME.registerComponent('force-rotate', {
         init: function () {
-          this.el.setAttribute('hoverable', '');
-          this.el.setAttribute('grabbable', '');
-          this.el.setAttribute('stretchable', '');
-          this.el.setAttribute('rotatable', '');
+          this.grabbingHand = null;
+
+          // Event: Wenn das Objekt gegriffen wird
+          this.el.addEventListener('grab-start', (evt) => {
+            this.grabbingHand = evt.detail.hand;
+          });
+
+          // Event: Wenn das Objekt losgelassen wird
+          this.el.addEventListener('grab-end', () => {
+            this.grabbingHand = null;
+          });
+        },
+
+        tick: function () {
+          // Wenn eine Hand das Objekt hält, kopiere deren Rotation
+          if (this.grabbingHand) {
+            const handRotation = this.grabbingHand.getAttribute('rotation');
+            // Wir setzen die Rotation des Objekts direkt auf die der Hand
+            this.el.setAttribute('rotation', handRotation);
+          }
         }
       });
     </script>
 </head>
 <body>
 
-    <a-scene physics="debug: true; gravity: -9.8">
-
+    <a-scene physics="debug: false; gravity: -9.8">
         <a-assets>
             <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
             <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
         </a-assets>
 
-        <a-entity light="type: ambient; intensity: 0.6"></a-entity>
-        <a-entity light="type: directional; intensity: 0.8" position="1 4 3"></a-entity>
-
         <a-entity id="rig" movement-controls="speed: 0.15">
-            <a-camera position="0 1.6 0" look-controls></a-camera>
-
+            <a-camera position="0 1.6 0"></a-camera>
+            
             <a-entity id="leftHand"
                       hand-controls="hand: left"
                       super-hands
@@ -52,41 +60,28 @@
             </a-entity>
         </a-entity>
 
-        <a-plane static-body 
-                 rotation="-90 0 0" 
-                 width="20" height="20" 
-                 color="#222" 
-                 shadow="receive: true">
-        </a-plane>
+        <a-plane static-body rotation="-90 0 0" width="20" height="20" color="#222"></a-plane>
 
         <a-entity
             class="interactable"
             gltf-model="#diamant"
-            position="-0.5 1.5 -1"
+            position="-0.5 1.4 -1"
             scale="0.5 0.5 0.5"
+            hoverable grabbable stretchable
             kinematic-body
-            interaction-logic>
+            force-rotate> 
         </a-entity>
 
         <a-entity
             class="interactable"
-            position="0.5 1.5 -1"
+            position="0.5 1.4 -1"
+            hoverable grabbable stretchable
             kinematic-body
-            interaction-logic>
+            force-rotate>
             
             <a-box width="0.3" height="0.3" depth="0.3" visible="false"></a-box>
-            
-            <a-entity 
-                gltf-model="#bodipy" 
-                scale="0.5 0.5 0.5">
-            </a-entity>
+            <a-entity gltf-model="#bodipy" scale="0.5 0.5 0.5"></a-entity>
         </a-entity>
-
-        <a-box static-body 
-               position="0 0.75 -1" 
-               width="2" height="0.1" depth="1" 
-               color="#444">
-        </a-box>
 
     </a-scene>
 </body>
