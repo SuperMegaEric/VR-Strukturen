@@ -4,120 +4,64 @@
 <meta charset="utf-8">
 <title>VR Moleküle</title>
 
-<!-- A-Frame Engine -->
+<!-- A-Frame -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-<!-- Bewegung -->
+<!-- Extras für Bewegung -->
 <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 
-<!-- Interaktion -->
+<!-- Super Hands -->
 <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
+
+<!-- Physik -->
 <script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
 </head>
-<a-scene physics="debug: false">
 <body>
-
-<!--
-Minimale VR/AR Szene
-Keine Umgebung – nur Moleküle
--->
-
 <a-scene background="color: #ffffff" physics="debug:false">
 
-<!-- =============================== -->
-<!-- Assets (3D Modelle) -->
-<!-- =============================== -->
+  <!-- Assets -->
+  <a-assets>
+    <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+  </a-assets>
 
-<a-assets>
+  <!-- Licht -->
+  <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+  <a-entity light="type: directional; intensity: 0.6" position="2 4 2"></a-entity>
 
-<a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
-<a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
-<a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
-<a-asset-item id="eis" src="Eis.glb"></a-asset-item>
-<a-asset-item id="mgcl2" src="MgCl2.glb"></a-asset-item>
-<a-asset-item id="mof" src="MOF.glb"></a-asset-item>
+  <!-- Rig + Kamera + Hände -->
+  <a-entity id="rig" movement-controls="speed:0.15">
+    <a-camera position="0 1.6 0"></a-camera>
 
-</a-assets>
-
-<!-- =============================== -->
-<!-- Licht -->
-<!-- =============================== -->
-
-<!-- Grundlicht -->
-
-<a-entity light="type: ambient; intensity: 0.8"></a-entity>
-
-<!-- gerichtetes Licht -->
-
-<a-entity light="type: directional; intensity: 0.6" position="2 4 2"></a-entity>
-
-<!-- =============================== -->
-<!-- Spieler -->
-<!-- =============================== -->
-
-<a-entity id="rig" movement-controls="speed:0.15">
-
-<a-camera position="0 1.6 3"></a-camera>
-
-<!-- Controller -->
-
-<a-entity
-  id="leftHand"
-  hand-controls="hand: left"
-  super-hands
-  sphere-collider="objects: .interactable"
-  raycaster="objects: .interactable">
-</a-entity>
-
-<a-entity
-  id="rightHand"
-  hand-controls="hand: right"
-  super-hands
-  sphere-collider="objects: .interactable"
-  raycaster="objects: .interactable">
-</a-entity>
-
-
-<a-entity id="rig" movement-controls="speed:0.15">
-  <a-camera position="0 1.6 0">
+    <!-- Linke Hand -->
     <a-entity
       id="leftHand"
       hand-controls="hand: left"
       super-hands
       sphere-collider="objects: .interactable">
     </a-entity>
+
+    <!-- Rechte Hand -->
     <a-entity
       id="rightHand"
       hand-controls="hand: right"
       super-hands
       sphere-collider="objects: .interactable">
     </a-entity>
-  </a-camera>
-</a-entity>
-  
-  
+  </a-entity>
 
-<!-- =============================== -->
-<!-- Moleküle -->
-<!-- =============================== -->
-
-<!-- Diamant -->
-
-<a-entity
-  class="interactable"
-  gltf-model="#diamant"
-  position="0 1.4 -1"
-  scale="0.5 0.5 0.5"
-  grabbable
-  stretchable
-  draggable
-  rotatable
-  dynamic-body>
-</a-entity>
-
-
+  <!-- Diamant -->
+  <a-entity
+    class="interactable"
+    gltf-model="#diamant"
+    position="0 1.4 -1"
+    scale="0.5 0.5 0.5"
+    grabbable
+    stretchable
+    draggable
+    rotatable
+    dynamic-body>
+  </a-entity>
 
 </a-scene>
-
 </body>
 </html>
