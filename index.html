@@ -1,79 +1,247 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="utf-8">
-    <title>VR Moleküle - Interaktiv</title>
-    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
-    <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
-    <script src="https://unpkg.com/aframe-environment-component@1.3.2/dist/aframe-environment-component.min.js"></script>
+<meta charset="utf-8">
+<title>VR Moleküle</title>
+
+<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+<script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
+
 </head>
+
 <body>
-    <a-scene>
 
-        <a-entity environment="preset: atmospheric; skyType: atmosphere; skyColor: #4dabf7; clouds: 0.7; ground: none"></a-entity>
+<a-scene>
 
-        <a-assets>
-            <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
-            <a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
-            <canvas id="gridCanvas" width="128" height="128"></canvas>
-        </a-assets>
+<!-- Himmel mit Wolken -->
+<a-sky src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg"
+       rotation="0 -90 0">
+</a-sky>
 
-        <a-entity id="rig" movement-controls="speed: 0.15">
-            <a-entity camera position="0 1.6 0" look-controls></a-entity>
+<!-- Assets -->
+<a-assets>
 
-            <a-entity id="leftHand"
-                      hand-controls="hand: left"
-                      super-hands="colliderEvent: raycaster-intersection; 
-                                   colliderEventProperty: els; 
-                                   colliderEndEvent: raycaster-intersection-cleared; 
-                                   colliderEndEventProperty: el"
-                      sphere-collider="objects: .interactable">
-            </a-entity>
+<a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+<a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
+<a-asset-item id="eis" src="Eis.glb"></a-asset-item>
+<a-asset-item id="mgcl2" src="MgCl2.glb"></a-asset-item>
+<a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
+<a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
 
-            <a-entity id="rightHand"
-                      hand-controls="hand: right"
-                      super-hands="colliderEvent: raycaster-intersection; 
-                                   colliderEventProperty: els; 
-                                   colliderEndEvent: raycaster-intersection-cleared; 
-                                   colliderEndEventProperty: el"
-                      sphere-collider="objects: .interactable">
-            </a-entity>
-        </a-entity>
+</a-assets>
 
-        <a-plane position="0 0.01 0" rotation="-90 0 0" width="100" height="100"
-                 material="src: #gridCanvas; repeat: 100 100; shader: flat"
-                 visible="true">
-        </a-plane>
 
-        <a-entity class="interactable"
-                  gltf-model="#diamant"
-                  position="-1 1.2 -2"
-                  scale="0.5 0.5 0.5"
-                  stretchable>
-        </a-entity>
+<!-- Spieler -->
+<a-entity id="rig" movement-controls="speed:0.2">
 
-        <a-entity class="interactable"
-                  gltf-model="#graphit"
-                  position="1 1.2 -2"
-                  scale="0.5 0.5 0.5"
-                  stretchable>
-        </a-entity>
+<a-entity id="camera"
+camera
+position="0 1.6 0"
+look-controls>
+</a-entity>
 
-        <a-entity light="type: ambient; intensity: 0.6"></a-entity>
-        <a-entity light="type: directional; intensity: 0.6" position="1 3 1"></a-entity>
+<a-entity id="leftHand"
+hand-controls="hand: left"
+super-hands="grabStartButtons: gripdown; grabEndButtons: gripup"
+sphere-collider="objects: .interactable">
+</a-entity>
 
-    </a-scene>
+<a-entity id="rightHand"
+hand-controls="hand: right"
+super-hands="grabStartButtons: gripdown; grabEndButtons: gripup"
+sphere-collider="objects: .interactable">
+</a-entity>
 
-    <script>
-        // Erzeugt das Fliesen-Muster: Weißes Quadrat mit grünem Rahmen
-        const canvas = document.getElementById('gridCanvas');
-        const ctx = canvas.getContext('2d');
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, 128, 128);
-        ctx.strokeStyle = '#00FF00'; // Grün
-        ctx.lineWidth = 6;
-        ctx.strokeRect(0, 0, 128, 128);
-    </script>
+</a-entity>
+
+
+
+<!-- Boden -->
+<a-plane position="0 0 0"
+rotation="-90 0 0"
+width="200"
+height="200"
+color="#6dbb5a">
+</a-plane>
+
+
+
+<!-- ============================= -->
+<!-- Moleküle im Kreis (10 Meter) -->
+<!-- ============================= -->
+
+
+
+<!-- Diamant -->
+<a-entity position="0 3 -10">
+
+<a-entity class="interactable"
+grabbable
+stretchable
+draggable>
+
+<a-box depth="3" height="3" width="3" visible="false"></a-box>
+
+<a-entity gltf-model="#diamant"
+scale="0.6 0.6 0.6">
+</a-entity>
+
+</a-entity>
+
+<a-text value="Diamant"
+position="0 2 0"
+align="center"
+color="black"
+look-at="#camera">
+</a-text>
+
+</a-entity>
+
+
+
+<!-- Graphit -->
+<a-entity position="8.66 3 -5">
+
+<a-entity class="interactable"
+grabbable
+stretchable
+draggable>
+
+<a-box depth="3" height="3" width="3" visible="false"></a-box>
+
+<a-entity gltf-model="#graphit"
+scale="0.6 0.6 0.6">
+</a-entity>
+
+</a-entity>
+
+<a-text value="Graphit"
+position="0 2 0"
+align="center"
+color="black"
+look-at="#camera">
+</a-text>
+
+</a-entity>
+
+
+
+<!-- Eis -->
+<a-entity position="8.66 3 5">
+
+<a-entity class="interactable"
+grabbable
+stretchable
+draggable>
+
+<a-box depth="3" height="3" width="3" visible="false"></a-box>
+
+<a-entity gltf-model="#eis"
+scale="0.6 0.6 0.6">
+</a-entity>
+
+</a-entity>
+
+<a-text value="Eis"
+position="0 2 0"
+align="center"
+color="black"
+look-at="#camera">
+</a-text>
+
+</a-entity>
+
+
+
+<!-- MgCl2 -->
+<a-entity position="0 3 10">
+
+<a-entity class="interactable"
+grabbable
+stretchable
+draggable>
+
+<a-box depth="3" height="3" width="3" visible="false"></a-box>
+
+<a-entity gltf-model="#mgcl2"
+scale="0.6 0.6 0.6">
+</a-entity>
+
+</a-entity>
+
+<a-text value="MgCl2"
+position="0 2 0"
+align="center"
+color="black"
+look-at="#camera">
+</a-text>
+
+</a-entity>
+
+
+
+<!-- Imidazol -->
+<a-entity position="-8.66 3 5">
+
+<a-entity class="interactable"
+grabbable
+stretchable
+draggable>
+
+<a-box depth="3" height="3" width="3" visible="false"></a-box>
+
+<a-entity gltf-model="#imidazol"
+scale="0.6 0.6 0.6">
+</a-entity>
+
+</a-entity>
+
+<a-text value="Imidazol"
+position="0 2 0"
+align="center"
+color="black"
+look-at="#camera">
+</a-text>
+
+</a-entity>
+
+
+
+<!-- BODIPY -->
+<a-entity position="-8.66 3 -5">
+
+<a-entity class="interactable"
+grabbable
+stretchable
+draggable>
+
+<a-box depth="3" height="3" width="3" visible="false"></a-box>
+
+<a-entity gltf-model="#bodipy"
+scale="0.5 0.5 0.5">
+</a-entity>
+
+</a-entity>
+
+<a-text value="BODIPY"
+position="0 2 0"
+align="center"
+color="black"
+look-at="#camera">
+</a-text>
+
+</a-entity>
+
+
+
+<!-- Licht -->
+<a-entity light="type: ambient; intensity:0.8"></a-entity>
+<a-entity light="type: directional; intensity:0.6" position="2 4 2"></a-entity>
+
+
+
+</a-scene>
+
 </body>
 </html>
