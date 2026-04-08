@@ -35,21 +35,27 @@
 <a-entity id="camera" camera position="0 1.6 0" look-controls></a-entity>
 
 <a-entity id="leftHand"
-hand-controls="hand: left"
-super-hands="colliderEvent: raycaster-intersection;
-colliderEventProperty: els;
-colliderEndEvent: raycaster-intersection-cleared;
-colliderEndEventProperty: el"
-sphere-collider="objects: .interactable">
+          hand-controls="hand: left"
+          super-hands="
+            colliderEvent: raycaster-intersection;
+            colliderEventProperty: els;
+            colliderEndEvent: raycaster-intersection-cleared;
+            colliderEndEventProperty: el;
+            grabStartButtons: gripdown;
+            grabEndButtons: gripup"
+          sphere-collider="objects: .interactable">
 </a-entity>
 
 <a-entity id="rightHand"
-hand-controls="hand: right"
-super-hands="colliderEvent: raycaster-intersection;
-colliderEventProperty: els;
-colliderEndEvent: raycaster-intersection-cleared;
-colliderEndEventProperty: el"
-sphere-collider="objects: .interactable">
+          hand-controls="hand: right"
+          super-hands="
+            colliderEvent: raycaster-intersection;
+            colliderEventProperty: els;
+            colliderEndEvent: raycaster-intersection-cleared;
+            colliderEndEventProperty: el;
+            grabStartButtons: gripdown;
+            grabEndButtons: gripup"
+          sphere-collider="objects: .interactable">
 </a-entity>
 
 </a-entity>
@@ -76,6 +82,7 @@ material="src: #gridCanvas; repeat: 100 100; shader: flat">
 <a-entity class="interactable"
 gltf-model="#diamant"
 scale="0.5 0.5 0.5"
+   grabbable
 stretchable>
 </a-entity>
 
@@ -96,6 +103,7 @@ look-at="#camera">
 <a-entity class="interactable"
 gltf-model="#graphit"
 scale="0.5 0.5 0.5"
+   grabbable
 stretchable>
 </a-entity>
 
@@ -103,7 +111,7 @@ stretchable>
 position="0 3 0"
 align="center"
 color="black"
-look-at="#camera">
+look-at="0 0 0">
 </a-text>
 
 </a-entity>
@@ -136,6 +144,7 @@ look-at="#camera">
 <a-entity class="interactable"
 gltf-model="#mgcl2"
 scale="0.5 0.5 0.5"
+   grabbable
 stretchable>
 </a-entity>
 
@@ -156,6 +165,7 @@ look-at="#camera">
 <a-entity class="interactable"
 gltf-model="#imidazol"
 scale="0.5 0.5 0.5"
+   grabbable
 stretchable>
 </a-entity>
 
@@ -176,6 +186,7 @@ look-at="#camera">
 <a-entity class="interactable"
 gltf-model="#BODIPY"
 scale="0.3 0.3 0.3"
+   grabbable
 stretchable>
 </a-entity>
 
