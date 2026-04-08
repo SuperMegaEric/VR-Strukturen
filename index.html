@@ -12,12 +12,10 @@
 
 <body>
 
-<a-scene>
+<a-scene background="color: #cfeaff">
 
-<!-- Himmel mit Wolken -->
-<a-sky src="https://cdn.aframe.io/360-image-gallery-boilerplate/img/sechelt.jpg"
-       rotation="0 -90 0">
-</a-sky>
+<!-- Himmel -->
+<a-sky color="#87CEEB"></a-sky>
 
 <!-- Assets -->
 <a-assets>
@@ -29,7 +27,10 @@
 <a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
 <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
 
+<canvas id="gridCanvas" width="128" height="128"></canvas>
+
 </a-assets>
+
 
 
 <!-- Spieler -->
@@ -62,14 +63,8 @@ sphere-collider="objects: .interactable">
 rotation="-90 0 0"
 width="200"
 height="200"
-color="#6dbb5a">
+material="src:#gridCanvas; repeat:200 200; shader:flat">
 </a-plane>
-
-
-
-<!-- ============================= -->
-<!-- Moleküle im Kreis (10 Meter) -->
-<!-- ============================= -->
 
 
 
@@ -84,8 +79,7 @@ draggable>
 <a-box depth="3" height="3" width="3" visible="false"></a-box>
 
 <a-entity gltf-model="#diamant"
-scale="0.6 0.6 0.6">
-</a-entity>
+scale="0.6 0.6 0.6"></a-entity>
 
 </a-entity>
 
@@ -93,8 +87,7 @@ scale="0.6 0.6 0.6">
 position="0 2 0"
 align="center"
 color="black"
-look-at="#camera">
-</a-text>
+look-at="#camera"></a-text>
 
 </a-entity>
 
@@ -111,8 +104,7 @@ draggable>
 <a-box depth="3" height="3" width="3" visible="false"></a-box>
 
 <a-entity gltf-model="#graphit"
-scale="0.6 0.6 0.6">
-</a-entity>
+scale="0.6 0.6 0.6"></a-entity>
 
 </a-entity>
 
@@ -120,8 +112,7 @@ scale="0.6 0.6 0.6">
 position="0 2 0"
 align="center"
 color="black"
-look-at="#camera">
-</a-text>
+look-at="#camera"></a-text>
 
 </a-entity>
 
@@ -138,8 +129,7 @@ draggable>
 <a-box depth="3" height="3" width="3" visible="false"></a-box>
 
 <a-entity gltf-model="#eis"
-scale="0.6 0.6 0.6">
-</a-entity>
+scale="0.6 0.6 0.6"></a-entity>
 
 </a-entity>
 
@@ -147,8 +137,7 @@ scale="0.6 0.6 0.6">
 position="0 2 0"
 align="center"
 color="black"
-look-at="#camera">
-</a-text>
+look-at="#camera"></a-text>
 
 </a-entity>
 
@@ -165,8 +154,7 @@ draggable>
 <a-box depth="3" height="3" width="3" visible="false"></a-box>
 
 <a-entity gltf-model="#mgcl2"
-scale="0.6 0.6 0.6">
-</a-entity>
+scale="0.6 0.6 0.6"></a-entity>
 
 </a-entity>
 
@@ -174,8 +162,7 @@ scale="0.6 0.6 0.6">
 position="0 2 0"
 align="center"
 color="black"
-look-at="#camera">
-</a-text>
+look-at="#camera"></a-text>
 
 </a-entity>
 
@@ -192,8 +179,7 @@ draggable>
 <a-box depth="3" height="3" width="3" visible="false"></a-box>
 
 <a-entity gltf-model="#imidazol"
-scale="0.6 0.6 0.6">
-</a-entity>
+scale="0.6 0.6 0.6"></a-entity>
 
 </a-entity>
 
@@ -201,8 +187,7 @@ scale="0.6 0.6 0.6">
 position="0 2 0"
 align="center"
 color="black"
-look-at="#camera">
-</a-text>
+look-at="#camera"></a-text>
 
 </a-entity>
 
@@ -219,8 +204,7 @@ draggable>
 <a-box depth="3" height="3" width="3" visible="false"></a-box>
 
 <a-entity gltf-model="#bodipy"
-scale="0.5 0.5 0.5">
-</a-entity>
+scale="0.5 0.5 0.5"></a-entity>
 
 </a-entity>
 
@@ -228,20 +212,40 @@ scale="0.5 0.5 0.5">
 position="0 2 0"
 align="center"
 color="black"
-look-at="#camera">
-</a-text>
+look-at="#camera"></a-text>
 
 </a-entity>
 
 
 
 <!-- Licht -->
-<a-entity light="type: ambient; intensity:0.8"></a-entity>
-<a-entity light="type: directional; intensity:0.6" position="2 4 2"></a-entity>
+<a-entity light="type:ambient; intensity:1.2"></a-entity>
+
+<a-entity light="type:directional; intensity:1.2"
+position="5 10 5"></a-entity>
+
+<a-entity light="type:directional; intensity:0.8"
+position="-5 10 -5"></a-entity>
 
 
 
 </a-scene>
+
+
+
+<script>
+
+const canvas = document.getElementById('gridCanvas');
+const ctx = canvas.getContext('2d');
+
+ctx.fillStyle = "white";
+ctx.fillRect(0,0,128,128);
+
+ctx.strokeStyle = "#00FF00";
+ctx.lineWidth = 6;
+ctx.strokeRect(0,0,128,128);
+
+</script>
 
 </body>
 </html>
