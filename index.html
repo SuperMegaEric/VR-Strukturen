@@ -2,88 +2,99 @@
 <html>
 <head>
     <meta charset="utf-8">
-    <title>VR Moleküle - Kristallstruktur Editor</title>
-
+    <title>Kristallstrukturen: Diamant vs. Graphit</title>
+    
     <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    
     <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+    
     <script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
     <script>
-    // Diese Komponente steuert die Logik: Trigger = Rotieren, Grip = Skalieren
-    AFRAME.registerComponent('interaction-manager', {
-      init: function () {
-        const el = this.el;
-        
-        // Beim Start: Alles ist möglich
-        el.setAttribute('rotatable', '');
-        el.setAttribute('stretchable', '');
+      // Die Parenting-Komponente: Sorgt dafür, dass Drehung 1:1 funktioniert
+      AFRAME.registerComponent('snap-to-hand', {
+        init: function () {
+          this.el.addEventListener('grab-start', (evt) => {
+            const hand = evt.detail.hand;
+            
+            // Physik pausieren
+            if (this.el.body) this.el.body.type = 0; 
 
-        // Wenn der Greif-Vorgang startet
-        el.addEventListener('grab-start', function (evt) {
-          const hand = evt.detail.hand; // Die Hand, die greift
-          // Hier könnte man noch prüfen, welcher Button gedrückt wurde, 
-          // aber super-hands regelt das meist über die zugewiesenen Komponenten.
-        });
-      }
-    });
+            // Das Modell wird zum Kind der Hand -> Drehung wird übernommen
+            hand.appendChild(this.el);
+            
+            // Optional: Modell leicht vor den Controller schieben (0 0 -0.1)
+            this.el.setAttribute('position', '0 0 -0.1');
+          });
+
+          this.el.addEventListener('grab-end', (evt) => {
+            const sceneEl = this.el.sceneEl;
+            
+            // Weltposition und Rotation beim Loslassen speichern
+            const worldPos = new THREE.Vector3();
+            this.el.object3D.getWorldPosition(worldPos);
+            const worldQuat = new THREE.Quaternion();
+            this.el.object3D.getWorldQuaternion(worldQuat);
+
+            // Zurück in den globalen Raum setzen
+            sceneEl.appendChild(this.el);
+
+            // Position/Rotation fixieren
+            this.el.object3D.position.copy(worldPos);
+            this.el.object3D.applyQuaternion(worldQuat);
+
+            // Physik wieder aktivieren
+            if (this.el.body) this.el.body.type = 4; 
+          });
+        }
+      });
     </script>
 </head>
 <body>
 
-<a-scene background="color: #111" shadow="type: pcfsoft">
-
-    <a-assets>
-        <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
-        <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
-    </a-assets>
-
-    <a-entity light="type: ambient; intensity: 0.5"></a-entity>
-    <a-entity light="type: directional; intensity: 0.8; castShadow: true" position="1 4 3"></a-entity>
-
-    <a-entity id="rig" movement-controls="speed: 0.15">
-        <a-camera position="0 1.6 0" look-controls></a-camera>
-
-        <a-entity id="leftHand"
-                  hand-controls="hand: left"
-                  super-hands="colliderEvent: raycaster-intersection; colliderEventProperty: els; colliderEndEvent: raycaster-intersection-cleared; colliderEndEventProperty: clearedEls"
-                  raycaster="objects: .interactable; far: 5; showLine: true"
-                  sphere-collider="objects: .interactable">
-        </a-entity>
-
-        <a-entity id="rightHand"
-                  hand-controls="hand: right"
-                  super-hands="colliderEvent: raycaster-intersection; colliderEventProperty: els; colliderEndEvent: raycaster-intersection-cleared; colliderEndEventProperty: clearedEls"
-                  raycaster="objects: .interactable; far: 5; showLine: true"
-                  sphere-collider="objects: .interactable">
-        </a-entity>
-    </a-entity>
-
-    <a-entity
-        class="interactable"
-        gltf-model="#diamant"
-        position="-0.5 1.4 -1"
-        scale="0.5 0.5 0.5"
-        hoverable grabbable stretchable rotatable
-        interaction-manager>
-    </a-entity>
-
-    <a-entity
-        class="interactable"
-        position="0.5 1.4 -1"
-        hoverable grabbable stretchable rotatable
-        interaction-manager>
+    <a-scene physics="debug: false; gravity: -9.8" background="color: #1a1a1a">
         
-        <a-box size="0.1 0.1 0.1" visible="false"></a-box>
-        
-        <a-entity 
-            gltf-model="#bodipy" 
-            scale="0.5 0.5 0.5">
+        <a-assets>
+            <a-asset-item id="diamant-model" src="Diamant.glb"></a-asset-item>
+            <a-asset-item id="graphit-model" src="Graphit.glb"></a-asset-item>
+        </a-assets>
+
+        <a-entity light="type: ambient; intensity: 0.5"></a-entity>
+        <a-entity light="type: directional; intensity: 0.8" position="1 4 3"></a-entity>
+
+        <a-entity id="rig">
+            <a-camera position="0 1.6 0"></a-camera>
+            
+            <a-entity id="leftHand" hand-controls="hand: left" super-hands sphere-collider="objects: .interactable"></a-entity>
+
+            <a-entity id="rightHand" hand-controls="hand: right" super-hands sphere-collider="objects: .interactable"></a-entity>
         </a-entity>
-    </a-entity>
 
-    <a-grid static-body></a-grid>
+        <a-plane static-body rotation="-90 0 0" width="20" height="20" color="#333" roughness="1"></a-plane>
 
-</a-scene>
+        <a-entity
+            class="interactable"
+            gltf-model="#diamant-model"
+            position="-0.6 1.4 -1.5"
+            scale="0.5 0.5 0.5"
+            kinematic-body
+            snap-to-hand
+            hoverable grabbable stretchable> 
+        </a-entity>
 
+        <a-entity
+            class="interactable"
+            gltf-model="#graphit-model"
+            position="0.6 1.4 -1.5"
+            scale="0.5 0.5 0.5"
+            kinematic-body
+            snap-to-hand
+            hoverable grabbable stretchable>
+        </a-entity>
+
+        <a-box static-body position="0 0.8 -1.5" width="2" height="0.1" depth="1" color="#444"></a-box>
+
+    </a-scene>
 </body>
 </html>
