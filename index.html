@@ -1,113 +1,81 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8">
-    <title>Diamant & Graphit - Interaktiv</title>
-    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
-    <script>
-      // Komponente für Bewegung (Drag) und Skalierung (Scroll)
-      AFRAME.registerComponent('manipulate', {
-        init: function () {
-          this.el.addEventListener('mousedown', this.onMouseDown.bind(this));
-          window.addEventListener('mouseup', this.onMouseUp.bind(this));
-          window.addEventListener('wheel', this.onWheel.bind(this));
-          
-          this.isDragging = false;
-          this.camera = document.querySelector('[camera]');
-          this.raycaster = new THREE.Raycaster();
-          this.mouse = new THREE.Vector2();
-          this.plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-          this.intersection = new THREE.Vector3();
-        },
+<head>
+<meta charset="utf-8">
+<title>VR Moleküle</title>
 
-        onMouseDown: function (evt) {
-          this.isDragging = true;
-          this.camera.setAttribute('look-controls', 'enabled: false');
-        },
+<!-- A-Frame -->
+<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
-        onMouseUp: function () {
-          this.isDragging = false;
-          this.camera.setAttribute('look-controls', 'enabled: true');
-        },
+<!-- Extras für Bewegung -->
+<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 
-        onWheel: function (evt) {
-          // Nur skalieren, wenn die Maus über dem Objekt schwebt (optional)
-          // Hier vereinfacht: Skalierung für das ausgewählte Objekt
-          let scale = this.el.getAttribute('scale');
-          let factor = evt.deltaY > 0 ? 0.9 : 1.1;
-          this.el.setAttribute('scale', {
-            x: scale.x * factor,
-            y: scale.y * factor,
-            z: scale.z * factor
-          });
-        },
+<!-- Super Hands -->
+<script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
-        tick: function () {
-          if (!this.isDragging) return;
+<!-- Physik -->
+<script src="https://cdn.jsdelivr.net/gh/n5ro/aframe-physics-system@4.0.1/dist/aframe-physics-system.min.js"></script>
+</head>
+<body>
+<a-scene background="color: #ffffff" physics="debug:false">
 
-          // Drag-Logik: Objekt folgt der Maus auf der Bodenebene
-          const mouseEvent = window.event;
-          this.mouse.x = (mouseEvent.clientX / window.innerWidth) * 2 - 1;
-          this.mouse.y = -(mouseEvent.clientY / window.innerHeight) * 2 + 1;
+  <!-- Assets -->
+  <a-assets>
+    <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+    <a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
+  </a-assets>
 
-          this.raycaster.setFromCamera(this.mouse, this.camera.components.camera.camera);
-          if (this.raycaster.ray.intersectPlane(this.plane, this.intersection)) {
-            this.el.setAttribute('position', {
-              x: this.intersection.x,
-              y: this.el.getAttribute('position').y, // Höhe beibehalten
-              z: this.intersection.z
-            });
-          }
-        }
-      });
-    </script>
-  </head>
-  <body>
-    <a-scene>
-      <a-assets>
-        <canvas id="gridCanvas" width="128" height="128"></canvas>
-      </a-assets>
+  <!-- Licht -->
+  <a-entity light="type: ambient; intensity: 0.8"></a-entity>
+  <a-entity light="type: directional; intensity: 0.6" position="2 4 2"></a-entity>
 
-      <a-entity camera look-controls position="0 1.6 4">
-        <a-cursor raycaster="objects: .interactable" color="yellow"></a-cursor>
-      </a-entity>
+  <!-- Rig + Kamera + Hände -->
+  <a-entity id="rig" movement-controls="speed:0.15">
+    <a-camera position="0 1.6 0"></a-camera>
 
-      <a-light type="ambient" color="#fff"></a-light>
-      <a-light type="directional" position="-1 2 1" intensity="0.8"></a-light>
+    <!-- Linke Hand -->
+    <a-entity
+      id="leftHand"
+      hand-controls="hand: left"
+      super-hands
+      sphere-collider="objects: .interactable">
+    </a-entity>
 
-      <a-plane position="0 0 0" rotation="-90 0 0" width="20" height="20" 
-               material="src: #gridCanvas; repeat: 20 20; shader: flat">
-      </a-plane>
+    <!-- Rechte Hand -->
+    <a-entity
+      id="rightHand"
+      hand-controls="hand: right"
+      super-hands
+      sphere-collider="objects: .interactable">
+    </a-entity>
+  </a-entity>
 
-      <a-entity class="interactable" manipulate
-                geometry="primitive: octahedron" 
-                material="color: #00d1ff; opacity: 0.8; transparent: true; metalness: 1; roughness: 0" 
-                position="-1.5 1 0" 
-                scale="0.8 0.8 0.8">
-        <a-text value="Diamant" align="center" position="0 1.2 0" color="black" side="double"></a-text>
-      </a-entity>
-
-      <a-entity class="interactable" manipulate
-                position="1.5 0.2 0" 
-                scale="1 1 1">
-        <a-cylinder radius="0.8" height="0.05" color="#333" position="0 0.2 0"></a-cylinder>
-        <a-cylinder radius="0.8" height="0.05" color="#333" position="0 0.5 0"></a-cylinder>
-        <a-cylinder radius="0.8" height="0.05" color="#333" position="0 0.8 0"></a-cylinder>
-        <a-text value="Graphit" align="center" position="0 1.5 0" color="black" side="double"></a-text>
-      </a-entity>
-
-      <a-sky color="#ECECEC"></a-sky>
-    </a-scene>
-
-    <script>
-      // Erzeuge das Linien-Muster für den Boden dynamisch
-      const canvas = document.getElementById('gridCanvas');
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, 128, 128);
-      ctx.strokeStyle = '#00FF00'; // Grün
-      ctx.lineWidth = 4;
-      ctx.strokeRect(0, 0, 128, 128); // Umrandung der Fliese
-    </script>
-  </body>
+  <!-- Diamant -->
+  <a-entity
+    class="interactable"
+    gltf-model="#diamant"
+    position="0 1.4 -1"
+    scale="0.5 0.5 0.5"
+    grabbable
+    stretchable
+    draggable
+    rotatable
+    dynamic-body>
+  </a-entity>
+  
+  <!-- Graphit -->
+  <a-entity
+    class="interactable"
+    gltf-model="#graphit"
+    position="0 -1.4 -1"
+    scale="0.5 0.5 0.5"
+    grabbable
+    stretchable
+    draggable
+    rotatable
+    dynamic-body>
+  </a-entity>
+  
+</a-scene>
+</body>
 </html>
