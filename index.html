@@ -23,7 +23,6 @@ AFRAME.registerComponent('billboard', {
     scene.camera.getWorldPosition(this.cameraWorldPos);
     this.el.object3D.getWorldPosition(this.selfWorldPos);
 
-    // Nur horizontal zur Kamera drehen, damit Text aufrecht bleibt.
     this.cameraWorldPos.y = this.selfWorldPos.y;
     this.el.object3D.lookAt(this.cameraWorldPos);
   }
@@ -31,26 +30,35 @@ AFRAME.registerComponent('billboard', {
 
 AFRAME.registerComponent('manipulable', {
   schema: {
-    minScale: { type: 'number', default: 0.45 },
-    maxScale: { type: 'number', default: 3.0 }
+    minScale: { type: 'number', default: 0.02 },
+    maxScale: { type: 'number', default: 0 }
   },
 
   init: function () {
     this.activeHands = [];
 
-    // Nur das Modell + die Hitbox skalieren, nicht den Text.
+    // Nur Modell + Hitbox werden rotiert/skaliert, nicht der Text.
     this.bodyEl = this.el.querySelector('.manip-body') || this.el;
     this.scaleObject = this.bodyEl.object3D;
 
-    this.grabOffsetWorld = new THREE.Vector3();
-    this.midpointOffsetWorld = new THREE.Vector3();
-    this.initialScale = new THREE.Vector3(1, 1, 1);
     this.tempHand1 = new THREE.Vector3();
     this.tempHand2 = new THREE.Vector3();
     this.tempObject = new THREE.Vector3();
     this.tempMidpoint = new THREE.Vector3();
     this.tempLocal = new THREE.Vector3();
+    this.grabPointLocal = new THREE.Vector3();
+    this.rotatedGrabOffset = new THREE.Vector3();
+    this.currentScale = new THREE.Vector3();
 
+    this.tempQuat1 = new THREE.Quaternion();
+    this.tempQuat2 = new THREE.Quaternion();
+    this.tempQuat3 = new THREE.Quaternion();
+    this.rotationOffset = new THREE.Quaternion();
+    this.desiredWorldQuat = new THREE.Quaternion();
+    this.initialBodyWorldQuat = new THREE.Quaternion();
+
+    this.midpointOffsetWorld = new THREE.Vector3();
+    this.initialScale = new THREE.Vector3(1, 1, 1);
     this.initialTwoHandDistance = 0.001;
   },
 
@@ -65,19 +73,16 @@ AFRAME.registerComponent('manipulable', {
       handGrabber.grabbing = this.el;
     }
 
-    // Eine Hand: Objekt an die Hand koppeln.
     if (this.activeHands.length === 1) {
-      handEl.object3D.getWorldPosition(this.tempHand1);
-      this.el.object3D.getWorldPosition(this.tempObject);
-      this.grabOffsetWorld.copy(this.tempObject).sub(this.tempHand1);
+      this.setupSingleHandState(handEl);
       return;
     }
 
-    // Zwei Hände: Startzustand für Skalierung merken.
     if (this.activeHands.length === 2) {
       this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
       this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
       this.el.object3D.getWorldPosition(this.tempObject);
+      this.bodyEl.object3D.getWorldQuaternion(this.initialBodyWorldQuat);
 
       this.initialTwoHandDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
       this.initialScale.copy(this.scaleObject.scale);
@@ -98,44 +103,88 @@ AFRAME.registerComponent('manipulable', {
       handGrabber.grabbing = null;
     }
 
-    // Wenn nach Loslassen noch eine Hand hält, neuen Offset setzen.
     if (this.activeHands.length === 1) {
-      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
-      this.el.object3D.getWorldPosition(this.tempObject);
-      this.grabOffsetWorld.copy(this.tempObject).sub(this.tempHand1);
+      this.setupSingleHandState(this.activeHands[0]);
     }
+  },
+
+  setupSingleHandState: function (handEl) {
+    handEl.object3D.getWorldQuaternion(this.tempQuat1);
+    this.bodyEl.object3D.getWorldQuaternion(this.tempQuat2);
+
+    // relative Drehung zwischen Hand und Objekt merken.
+    this.rotationOffset.copy(this.tempQuat1).invert().multiply(this.tempQuat2);
+
+    // Greifpunkt auf dem Objekt merken, damit sich das Modell anfühlt,
+    // als würde man wirklich an einem Punkt / „Atom" anfassen.
+    handEl.object3D.getWorldPosition(this.tempHand1);
+    this.grabPointLocal.copy(this.tempHand1);
+    this.bodyEl.object3D.worldToLocal(this.grabPointLocal);
   },
 
   tick: function () {
     if (this.activeHands.length === 0) return;
 
-    // Eine Hand -> bewegen.
     if (this.activeHands.length === 1) {
-      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
-      this.tempObject.copy(this.tempHand1).add(this.grabOffsetWorld);
-      this.setWorldPosition(this.tempObject);
+      this.updateSingleHand();
       return;
     }
 
-    // Zwei Hände -> skalieren + Mittelpunkt folgen.
     if (this.activeHands.length === 2) {
-      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
-      this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
-
-      const currentDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
-      const factor = currentDistance / this.initialTwoHandDistance;
-      const desiredScale = THREE.MathUtils.clamp(
-        this.initialScale.x * factor,
-        this.data.minScale,
-        this.data.maxScale
-      );
-
-      this.scaleObject.scale.set(desiredScale, desiredScale, desiredScale);
-
-      this.tempMidpoint.copy(this.tempHand1).add(this.tempHand2).multiplyScalar(0.5);
-      this.tempObject.copy(this.tempMidpoint).add(this.midpointOffsetWorld);
-      this.setWorldPosition(this.tempObject);
+      this.updateTwoHand();
     }
+  },
+
+  updateSingleHand: function () {
+    const handEl = this.activeHands[0];
+    handEl.object3D.getWorldPosition(this.tempHand1);
+    handEl.object3D.getWorldQuaternion(this.tempQuat1);
+
+    // Objektrotation folgt frei der Hand-/Controller-Ausrichtung.
+    this.desiredWorldQuat.copy(this.tempQuat1).multiply(this.rotationOffset);
+    this.setBodyWorldQuaternion(this.desiredWorldQuat);
+
+    // Das gegriffene lokale Punktstück soll in der Hand bleiben.
+    this.currentScale.copy(this.scaleObject.scale);
+    this.rotatedGrabOffset.copy(this.grabPointLocal).multiply(this.currentScale).applyQuaternion(this.desiredWorldQuat);
+    this.tempObject.copy(this.tempHand1).sub(this.rotatedGrabOffset);
+    this.setWorldPosition(this.tempObject);
+  },
+
+  updateTwoHand: function () {
+    this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
+    this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
+
+    const currentDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
+    let desiredScale = this.initialScale.x * (currentDistance / this.initialTwoHandDistance);
+
+    // Kein oberes Limit, wenn maxScale <= 0.
+    desiredScale = Math.max(desiredScale, this.data.minScale);
+    if (this.data.maxScale > 0) {
+      desiredScale = Math.min(desiredScale, this.data.maxScale);
+    }
+
+    this.scaleObject.scale.set(desiredScale, desiredScale, desiredScale);
+
+    // Mittelpunkt der beiden Hände folgt dem Objektzentrum.
+    this.tempMidpoint.copy(this.tempHand1).add(this.tempHand2).multiplyScalar(0.5);
+    this.tempObject.copy(this.tempMidpoint).add(this.midpointOffsetWorld);
+    this.setWorldPosition(this.tempObject);
+
+    // Während Zwei-Hand-Griff bleibt die aktuelle Rotation erhalten.
+    this.setBodyWorldQuaternion(this.initialBodyWorldQuat);
+  },
+
+  setBodyWorldQuaternion: function (worldQuat) {
+    const parent = this.bodyEl.object3D.parent;
+    if (!parent) {
+      this.bodyEl.object3D.quaternion.copy(worldQuat);
+      return;
+    }
+
+    parent.getWorldQuaternion(this.tempQuat3);
+    this.tempQuat3.invert();
+    this.bodyEl.object3D.quaternion.copy(this.tempQuat3.multiply(worldQuat));
   },
 
   setWorldPosition: function (worldPosition) {
@@ -311,18 +360,18 @@ html, body {
 
 <!-- Kurzanleitung -->
 <a-entity position="0 2.3 -2.5">
-  <a-plane width="4.2" height="1.25" color="#ffffff" opacity="0.72"></a-plane>
+  <a-plane width="4.6" height="1.45" color="#ffffff" opacity="0.72"></a-plane>
   <a-text
-    value="Grip oder Trigger: Modell greifen und bewegen\nBeide Hände am selben Modell: Größe ändern"
+    value="Grip oder Trigger: Modell greifen, bewegen und drehen\nBeide Hände am selben Modell: Größe ändern\nmaxScale: 0 bedeutet: ohne oberes Limit"
     align="center"
     color="#10263d"
-    width="3.9"
+    width="4.2"
     position="0 0 0.01">
   </a-text>
 </a-entity>
 
 <!-- Diamant -->
-<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="0 3 -10">
+<a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="0 3 -10">
   <a-entity class="manip-body">
     <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#diamant" scale="0.6 0.6 0.6"></a-entity>
@@ -331,7 +380,7 @@ html, body {
 </a-entity>
 
 <!-- Graphit -->
-<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="8.66 3 -5">
+<a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="8.66 3 -5">
   <a-entity class="manip-body">
     <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#graphit" scale="0.6 0.6 0.6"></a-entity>
@@ -340,7 +389,7 @@ html, body {
 </a-entity>
 
 <!-- Eis -->
-<a-entity class="interactable" manipulable="minScale: 0.35; maxScale: 2.5" position="8.66 1 5">
+<a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="8.66 1 5">
   <a-entity class="manip-body">
     <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#eis" scale="50 50 50"></a-entity>
@@ -349,7 +398,7 @@ html, body {
 </a-entity>
 
 <!-- MgCl2 -->
-<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="0 3 10">
+<a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="0 3 10">
   <a-entity class="manip-body">
     <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#mgcl2" scale="0.6 0.6 0.6"></a-entity>
@@ -358,7 +407,7 @@ html, body {
 </a-entity>
 
 <!-- Imidazol -->
-<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="-8.66 3 5">
+<a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="-8.66 3 5">
   <a-entity class="manip-body">
     <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#imidazol" scale="0.6 0.6 0.6"></a-entity>
@@ -367,7 +416,7 @@ html, body {
 </a-entity>
 
 <!-- BODIPY -->
-<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="-8.66 3 -5">
+<a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="-8.66 3 -5">
   <a-entity class="manip-body">
     <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#bodipy" scale="0.5 0.5 0.5"></a-entity>
