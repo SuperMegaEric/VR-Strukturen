@@ -1,648 +1,1557 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VR Chemiehalle</title>
+  <meta charset="utf-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0">
 
-<!-- A-Frame + Bewegung -->
-<script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
+  <title>VR-Chemiehalle</title>
 
-<script>
-AFRAME.registerComponent('billboard', {
-  init: function () {
-    this.cameraWorldPos = new THREE.Vector3();
-    this.selfWorldPos = new THREE.Vector3();
-  },
+  <!-- A-Frame und Bewegung -->
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
 
-  tick: function () {
-    const scene = this.el.sceneEl;
-    if (!scene || !scene.camera) return;
-
-    scene.camera.getWorldPosition(this.cameraWorldPos);
-    this.el.object3D.getWorldPosition(this.selfWorldPos);
-    this.cameraWorldPos.y = this.selfWorldPos.y;
-    this.el.object3D.lookAt(this.cameraWorldPos);
-  }
-});
-
-AFRAME.registerComponent('manipulable', {
-  schema: {
-    minScale: { type: 'number', default: 0.02 },
-    maxScale: { type: 'number', default: 0 }
-  },
-
-  init: function () {
-    this.activeHands = [];
-
-    // Nur Modell + Hitbox werden rotiert/skaliert, nicht der Text.
-    this.bodyEl = this.el.querySelector('.manip-body') || this.el;
-    this.scaleObject = this.bodyEl.object3D;
-
-    this.tempHand1 = new THREE.Vector3();
-    this.tempHand2 = new THREE.Vector3();
-    this.tempObject = new THREE.Vector3();
-    this.tempMidpoint = new THREE.Vector3();
-    this.tempLocal = new THREE.Vector3();
-    this.grabPointLocal = new THREE.Vector3();
-    this.rotatedGrabOffset = new THREE.Vector3();
-    this.currentScale = new THREE.Vector3();
-
-    this.tempQuat1 = new THREE.Quaternion();
-    this.tempQuat2 = new THREE.Quaternion();
-    this.tempQuat3 = new THREE.Quaternion();
-    this.rotationOffset = new THREE.Quaternion();
-    this.desiredWorldQuat = new THREE.Quaternion();
-    this.initialBodyWorldQuat = new THREE.Quaternion();
-
-    this.midpointOffsetWorld = new THREE.Vector3();
-    this.initialScale = new THREE.Vector3(1, 1, 1);
-    this.initialTwoHandDistance = 0.001;
-  },
-
-  startGrab: function (handEl) {
-    if (this.activeHands.indexOf(handEl) !== -1) return;
-    if (this.activeHands.length >= 2) return;
-
-    this.activeHands.push(handEl);
-
-    const handGrabber = handEl.components['hand-grabber'];
-    if (handGrabber) {
-      handGrabber.grabbing = this.el;
+  <style>
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
     }
+  </style>
 
-    if (this.activeHands.length === 1) {
-      this.setupSingleHandState(handEl);
-      return;
-    }
+  <script>
+    // ========================================================
+    // ZENTRALE EINSTELLUNGEN
+    // ========================================================
 
-    if (this.activeHands.length === 2) {
-      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
-      this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
-      this.el.object3D.getWorldPosition(this.tempObject);
-      this.bodyEl.object3D.getWorldQuaternion(this.initialBodyWorldQuat);
+    const HALL_CONFIG = {
+      // Abmessungen der Halle in Metern
+      width: 48,
+      depth: 34,
+      height: 8,
+      wallThickness: 0.3,
 
-      this.initialTwoHandDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
-      this.initialScale.copy(this.scaleObject.scale);
+      // ======================================================
+      // HIER FARBE UND MATERIAL ÄNDERN
+      //
+      // color:
+      //   Grundfarbe als Hex-Farbwert.
+      //
+      // roughness:
+      //   0 = glatt / glänzend
+      //   1 = rau / matt
+      //
+      // metalness:
+      //   0 = nichtmetallisch
+      //   1 = metallisch
+      //
+      // src:
+      //   Optionaler Pfad zu einer Textur.
+      //
+      // repeat:
+      //   Wiederholung der Textur.
+      // ======================================================
 
-      this.tempMidpoint.copy(this.tempHand1).add(this.tempHand2).multiplyScalar(0.5);
-      this.midpointOffsetWorld.copy(this.tempObject).sub(this.tempMidpoint);
-    }
-  },
+      materials: {
+        // BODEN
+        floor: {
+          color: '#c8925c',
+          roughness: 0.85,
+          metalness: 0.02
 
-  endGrab: function (handEl) {
-    const index = this.activeHands.indexOf(handEl);
-    if (index === -1) return;
+          // Für eine Textur die folgenden Zeilen aktivieren:
+          // ,src: 'texturen/parkett.jpg'
+          // ,repeat: '12 8'
+        },
 
-    this.activeHands.splice(index, 1);
+        // ALLE WÄNDE
+        wall: {
+          color: '#ddd7cc',
+          roughness: 1,
+          metalness: 0
 
-    const handGrabber = handEl.components['hand-grabber'];
-    if (handGrabber && handGrabber.grabbing === this.el) {
-      handGrabber.grabbing = null;
-    }
+          // Optional:
+          // ,src: 'texturen/putz.jpg'
+          // ,repeat: '4 2'
+        },
 
-    if (this.activeHands.length === 1) {
-      this.setupSingleHandState(this.activeHands[0]);
-    }
-  },
+        // DECKE
+        ceiling: {
+          color: '#f2f2ee',
+          roughness: 0.95,
+          metalness: 0
 
-  setupSingleHandState: function (handEl) {
-    handEl.object3D.getWorldQuaternion(this.tempQuat1);
-    this.bodyEl.object3D.getWorldQuaternion(this.tempQuat2);
+          // Optional:
+          // ,src: 'texturen/decke.jpg'
+          // ,repeat: '8 6'
+        }
+      },
 
-    // relative Drehung zwischen Hand und Objekt merken.
-    this.rotationOffset.copy(this.tempQuat1).invert().multiply(this.tempQuat2);
+      // ======================================================
+      // POSTER UND MODELLPOSITIONEN
+      // ======================================================
 
-    // Greifpunkt auf dem Objekt merken.
-    handEl.object3D.getWorldPosition(this.tempHand1);
-    this.grabPointLocal.copy(this.tempHand1);
-    this.bodyEl.object3D.worldToLocal(this.grabPointLocal);
-  },
+      posterWidth: 3.2,
+      posterHeight: 1.8,       // Seitenverhältnis 16:9
+      posterCenterY: 2.9,      // Höhe der Postermitte
 
-  tick: function () {
-    if (this.activeHands.length === 0) return;
+      modelCenterY: 1.45,      // Höhe der Modellmitte
+      modelWallDistance: 2.7,  // Abstand vor dem Poster
 
-    if (this.activeHands.length === 1) {
-      this.updateSingleHand();
-      return;
-    }
+      // ======================================================
+      // DIE 16 STATIONEN
+      //
+      // wall:
+      //   'left', 'right', 'back' oder 'front'
+      //
+      // along:
+      //   Position entlang der betreffenden Wand.
+      //
+      // slide:
+      //   '' = Platzhalter
+      //   Beispiel: 'folien/folie01.png'
+      //
+      // model:
+      //   '' = Modellplatzhalter
+      //   Sonst die ID aus <a-assets>, z. B. '#diamant'
+      //
+      // scale:
+      //   Anfangsskalierung der jeweiligen GLB-Datei.
+      // ======================================================
 
-    if (this.activeHands.length === 2) {
-      this.updateTwoHand();
-    }
-  },
+      stations: [
+        // Linke Wand: 5 Stationen
+        {
+          wall: 'left',
+          along: -12,
+          title: 'Diamant',
+          slide: '',
+          model: '#diamant',
+          scale: 0.55
+        },
+        {
+          wall: 'left',
+          along: -6,
+          title: 'Graphit',
+          slide: '',
+          model: '#graphit',
+          scale: 0.55
+        },
+        {
+          wall: 'left',
+          along: 0,
+          title: 'Station 03',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'left',
+          along: 6,
+          title: 'Station 04',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'left',
+          along: 12,
+          title: 'Station 05',
+          slide: '',
+          model: '',
+          scale: 1
+        },
 
-  updateSingleHand: function () {
-    const handEl = this.activeHands[0];
-    handEl.object3D.getWorldPosition(this.tempHand1);
-    handEl.object3D.getWorldQuaternion(this.tempQuat1);
+        // Rechte Wand: 5 Stationen
+        {
+          wall: 'right',
+          along: -12,
+          title: 'Eis',
+          slide: '',
+          model: '#eis',
+          scale: 42
+        },
+        {
+          wall: 'right',
+          along: -6,
+          title: 'MgCl2',
+          slide: '',
+          model: '#mgcl2',
+          scale: 0.55
+        },
+        {
+          wall: 'right',
+          along: 0,
+          title: 'Station 08',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'right',
+          along: 6,
+          title: 'Station 09',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'right',
+          along: 12,
+          title: 'Station 10',
+          slide: '',
+          model: '',
+          scale: 1
+        },
 
-    this.desiredWorldQuat.copy(this.tempQuat1).multiply(this.rotationOffset);
-    this.setBodyWorldQuaternion(this.desiredWorldQuat);
+        // Rückwand: 4 Stationen
+        {
+          wall: 'back',
+          along: -16,
+          title: 'Imidazol',
+          slide: '',
+          model: '#imidazol',
+          scale: 0.55
+        },
+        {
+          wall: 'back',
+          along: -5.3,
+          title: 'Station 12',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'back',
+          along: 5.3,
+          title: 'Station 13',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'back',
+          along: 16,
+          title: 'BODIPY',
+          slide: '',
+          model: '#bodipy',
+          scale: 0.5
+        },
 
-    this.currentScale.copy(this.scaleObject.scale);
-    this.rotatedGrabOffset.copy(this.grabPointLocal).multiply(this.currentScale).applyQuaternion(this.desiredWorldQuat);
-    this.tempObject.copy(this.tempHand1).sub(this.rotatedGrabOffset);
-    this.setWorldPosition(this.tempObject);
-  },
+        // Vorderwand: 2 Stationen neben dem Eingang
+        {
+          wall: 'front',
+          along: -10.5,
+          title: 'Station 15',
+          slide: '',
+          model: '',
+          scale: 1
+        },
+        {
+          wall: 'front',
+          along: 10.5,
+          title: 'Station 16',
+          slide: '',
+          model: '',
+          scale: 1
+        }
+      ]
+    };
 
-  updateTwoHand: function () {
-    this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
-    this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
 
-    const currentDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
-    let desiredScale = this.initialScale.x * (currentDistance / this.initialTwoHandDistance);
+    // ========================================================
+    // BILLBOARD
+    // Beschriftungen richten sich horizontal zur Kamera aus.
+    // ========================================================
 
-    desiredScale = Math.max(desiredScale, this.data.minScale);
-    if (this.data.maxScale > 0) {
-      desiredScale = Math.min(desiredScale, this.data.maxScale);
-    }
+    AFRAME.registerComponent('billboard', {
+      init: function () {
+        this.cameraWorldPos = new THREE.Vector3();
+        this.selfWorldPos = new THREE.Vector3();
+      },
 
-    this.scaleObject.scale.set(desiredScale, desiredScale, desiredScale);
+      tick: function () {
+        const scene = this.el.sceneEl;
 
-    this.tempMidpoint.copy(this.tempHand1).add(this.tempHand2).multiplyScalar(0.5);
-    this.tempObject.copy(this.tempMidpoint).add(this.midpointOffsetWorld);
-    this.setWorldPosition(this.tempObject);
+        if (!scene || !scene.camera) return;
 
-    this.setBodyWorldQuaternion(this.initialBodyWorldQuat);
-  },
+        scene.camera.getWorldPosition(this.cameraWorldPos);
+        this.el.object3D.getWorldPosition(this.selfWorldPos);
 
-  setBodyWorldQuaternion: function (worldQuat) {
-    const parent = this.bodyEl.object3D.parent;
-    if (!parent) {
-      this.bodyEl.object3D.quaternion.copy(worldQuat);
-      return;
-    }
-
-    parent.getWorldQuaternion(this.tempQuat3);
-    this.tempQuat3.invert();
-    this.bodyEl.object3D.quaternion.copy(this.tempQuat3.multiply(worldQuat));
-  },
-
-  setWorldPosition: function (worldPosition) {
-    const parent = this.el.object3D.parent;
-    if (!parent) {
-      this.el.object3D.position.copy(worldPosition);
-      return;
-    }
-
-    this.tempLocal.copy(worldPosition);
-    parent.worldToLocal(this.tempLocal);
-    this.el.object3D.position.copy(this.tempLocal);
-  }
-});
-
-AFRAME.registerComponent('hand-grabber', {
-  schema: {
-    hand: { type: 'string', default: 'left' },
-    handRadius: { type: 'number', default: 0.23 },
-    grabEvents: { type: 'string', default: 'gripdown,triggerdown,pinchstarted' },
-    releaseEvents: { type: 'string', default: 'gripup,triggerup,pinchended' }
-  },
-
-  init: function () {
-    this.grabbing = null;
-
-    this.worldHandPos = new THREE.Vector3();
-    this.closestPoint = new THREE.Vector3();
-    this.bounds = new THREE.Box3();
-
-    this.onGrabStart = this.onGrabStart.bind(this);
-    this.onGrabEnd = this.onGrabEnd.bind(this);
-
-    this.grabEventList = this.data.grabEvents
-      .split(',')
-      .map(function (name) { return name.trim(); })
-      .filter(Boolean);
-
-    this.releaseEventList = this.data.releaseEvents
-      .split(',')
-      .map(function (name) { return name.trim(); })
-      .filter(Boolean);
-
-    this.grabEventList.forEach((eventName) => {
-      this.el.addEventListener(eventName, this.onGrabStart);
-    });
-
-    this.releaseEventList.forEach((eventName) => {
-      this.el.addEventListener(eventName, this.onGrabEnd);
-    });
-  },
-
-  remove: function () {
-    this.grabEventList.forEach((eventName) => {
-      this.el.removeEventListener(eventName, this.onGrabStart);
-    });
-
-    this.releaseEventList.forEach((eventName) => {
-      this.el.removeEventListener(eventName, this.onGrabEnd);
-    });
-  },
-
-  onGrabStart: function () {
-    if (this.grabbing) return;
-
-    const target = this.findClosestTarget();
-    if (!target) return;
-
-    const manip = target.components.manipulable;
-    if (!manip) return;
-
-    manip.startGrab(this.el);
-  },
-
-  onGrabEnd: function () {
-    if (!this.grabbing) return;
-
-    const manip = this.grabbing.components.manipulable;
-    if (manip) {
-      manip.endGrab(this.el);
-    } else {
-      this.grabbing = null;
-    }
-  },
-
-  findClosestTarget: function () {
-    const candidates = this.el.sceneEl.querySelectorAll('.interactable');
-    this.el.object3D.getWorldPosition(this.worldHandPos);
-
-    let bestTarget = null;
-    let bestDistance = Infinity;
-
-    for (let i = 0; i < candidates.length; i++) {
-      const candidate = candidates[i];
-      const hitbox = candidate.querySelector('.hitbox') || candidate;
-      if (!hitbox || !hitbox.object3D) continue;
-
-      this.bounds.setFromObject(hitbox.object3D);
-      this.closestPoint.copy(this.worldHandPos).clamp(this.bounds.min, this.bounds.max);
-
-      const distance = this.worldHandPos.distanceTo(this.closestPoint);
-      if (distance <= this.data.handRadius && distance < bestDistance) {
-        bestTarget = candidate;
-        bestDistance = distance;
+        this.cameraWorldPos.y = this.selfWorldPos.y;
+        this.el.object3D.lookAt(this.cameraWorldPos);
       }
-    }
+    });
 
-    return bestTarget;
-  }
-});
-</script>
 
-<style>
-html, body {
-  margin: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  font-family: Arial, sans-serif;
-}
-</style>
+    // ========================================================
+    // MODELLMANIPULATION
+    //
+    // Bedienung wie im bisherigen Code:
+    // - Eine Hand: bewegen und drehen.
+    // - Zwei Hände: skalieren und gemeinsam bewegen.
+    //
+    // Nur .manip-body wird gedreht und skaliert.
+    // Die Beschriftung bleibt davon unabhängig.
+    // ========================================================
+
+    AFRAME.registerComponent('manipulable', {
+      schema: {
+        minScale: {
+          type: 'number',
+          default: 0.02
+        },
+        maxScale: {
+          type: 'number',
+          default: 0
+        }
+      },
+
+      init: function () {
+        this.activeHands = [];
+
+        this.bodyEl =
+          this.el.querySelector('.manip-body') || this.el;
+
+        this.scaleObject = this.bodyEl.object3D;
+
+        this.tempHand1 = new THREE.Vector3();
+        this.tempHand2 = new THREE.Vector3();
+        this.tempObject = new THREE.Vector3();
+        this.tempMidpoint = new THREE.Vector3();
+        this.tempLocal = new THREE.Vector3();
+
+        this.grabPointLocal = new THREE.Vector3();
+        this.rotatedGrabOffset = new THREE.Vector3();
+        this.currentScale = new THREE.Vector3();
+
+        this.tempQuat1 = new THREE.Quaternion();
+        this.tempQuat2 = new THREE.Quaternion();
+        this.tempQuat3 = new THREE.Quaternion();
+
+        this.rotationOffset = new THREE.Quaternion();
+        this.desiredWorldQuat = new THREE.Quaternion();
+        this.initialBodyWorldQuat = new THREE.Quaternion();
+
+        this.midpointOffsetWorld = new THREE.Vector3();
+        this.initialScale = new THREE.Vector3(1, 1, 1);
+        this.initialTwoHandDistance = 0.001;
+      },
+
+      startGrab: function (handEl) {
+        if (this.activeHands.indexOf(handEl) !== -1) return;
+        if (this.activeHands.length >= 2) return;
+
+        this.activeHands.push(handEl);
+
+        const grabber = handEl.components['hand-grabber'];
+
+        if (grabber) {
+          grabber.grabbing = this.el;
+        }
+
+        if (this.activeHands.length === 1) {
+          this.setupSingleHandState(handEl);
+          return;
+        }
+
+        if (this.activeHands.length === 2) {
+          this.activeHands[0].object3D.getWorldPosition(
+            this.tempHand1
+          );
+
+          this.activeHands[1].object3D.getWorldPosition(
+            this.tempHand2
+          );
+
+          this.el.object3D.getWorldPosition(this.tempObject);
+
+          this.bodyEl.object3D.getWorldQuaternion(
+            this.initialBodyWorldQuat
+          );
+
+          this.initialTwoHandDistance = Math.max(
+            this.tempHand1.distanceTo(this.tempHand2),
+            0.001
+          );
+
+          this.initialScale.copy(this.scaleObject.scale);
+
+          this.tempMidpoint
+            .copy(this.tempHand1)
+            .add(this.tempHand2)
+            .multiplyScalar(0.5);
+
+          this.midpointOffsetWorld
+            .copy(this.tempObject)
+            .sub(this.tempMidpoint);
+        }
+      },
+
+      endGrab: function (handEl) {
+        const index = this.activeHands.indexOf(handEl);
+
+        if (index === -1) return;
+
+        this.activeHands.splice(index, 1);
+
+        const grabber = handEl.components['hand-grabber'];
+
+        if (grabber && grabber.grabbing === this.el) {
+          grabber.grabbing = null;
+        }
+
+        if (this.activeHands.length === 1) {
+          this.setupSingleHandState(this.activeHands[0]);
+        }
+      },
+
+      setupSingleHandState: function (handEl) {
+        handEl.object3D.getWorldQuaternion(this.tempQuat1);
+
+        this.bodyEl.object3D.getWorldQuaternion(
+          this.tempQuat2
+        );
+
+        // Relative Drehung zwischen Hand und Modell merken.
+        this.rotationOffset
+          .copy(this.tempQuat1)
+          .invert()
+          .multiply(this.tempQuat2);
+
+        // Greifpunkt im lokalen Koordinatensystem merken.
+        handEl.object3D.getWorldPosition(this.tempHand1);
+
+        this.grabPointLocal.copy(this.tempHand1);
+
+        this.bodyEl.object3D.worldToLocal(
+          this.grabPointLocal
+        );
+      },
+
+      tick: function () {
+        if (this.activeHands.length === 0) return;
+
+        if (this.activeHands.length === 1) {
+          this.updateSingleHand();
+          return;
+        }
+
+        if (this.activeHands.length === 2) {
+          this.updateTwoHand();
+        }
+      },
+
+      updateSingleHand: function () {
+        const handEl = this.activeHands[0];
+
+        handEl.object3D.getWorldPosition(this.tempHand1);
+        handEl.object3D.getWorldQuaternion(this.tempQuat1);
+
+        this.desiredWorldQuat
+          .copy(this.tempQuat1)
+          .multiply(this.rotationOffset);
+
+        this.setBodyWorldQuaternion(
+          this.desiredWorldQuat
+        );
+
+        this.currentScale.copy(this.scaleObject.scale);
+
+        this.rotatedGrabOffset
+          .copy(this.grabPointLocal)
+          .multiply(this.currentScale)
+          .applyQuaternion(this.desiredWorldQuat);
+
+        this.tempObject
+          .copy(this.tempHand1)
+          .sub(this.rotatedGrabOffset);
+
+        this.setWorldPosition(this.tempObject);
+      },
+
+      updateTwoHand: function () {
+        this.activeHands[0].object3D.getWorldPosition(
+          this.tempHand1
+        );
+
+        this.activeHands[1].object3D.getWorldPosition(
+          this.tempHand2
+        );
+
+        const currentDistance = Math.max(
+          this.tempHand1.distanceTo(this.tempHand2),
+          0.001
+        );
+
+        let desiredScale =
+          this.initialScale.x *
+          (currentDistance / this.initialTwoHandDistance);
+
+        desiredScale = Math.max(
+          desiredScale,
+          this.data.minScale
+        );
+
+        // maxScale: 0 bedeutet keine Obergrenze.
+        if (this.data.maxScale > 0) {
+          desiredScale = Math.min(
+            desiredScale,
+            this.data.maxScale
+          );
+        }
+
+        this.scaleObject.scale.set(
+          desiredScale,
+          desiredScale,
+          desiredScale
+        );
+
+        this.tempMidpoint
+          .copy(this.tempHand1)
+          .add(this.tempHand2)
+          .multiplyScalar(0.5);
+
+        this.tempObject
+          .copy(this.tempMidpoint)
+          .add(this.midpointOffsetWorld);
+
+        this.setWorldPosition(this.tempObject);
+
+        // Während des Zweihand-Skalierens bleibt die Drehung
+        // wie im bisherigen Code erhalten.
+        this.setBodyWorldQuaternion(
+          this.initialBodyWorldQuat
+        );
+      },
+
+      setBodyWorldQuaternion: function (worldQuat) {
+        const parent = this.bodyEl.object3D.parent;
+
+        if (!parent) {
+          this.bodyEl.object3D.quaternion.copy(worldQuat);
+          return;
+        }
+
+        parent.getWorldQuaternion(this.tempQuat3);
+        this.tempQuat3.invert();
+
+        this.bodyEl.object3D.quaternion.copy(
+          this.tempQuat3.multiply(worldQuat)
+        );
+      },
+
+      setWorldPosition: function (worldPosition) {
+        const parent = this.el.object3D.parent;
+
+        if (!parent) {
+          this.el.object3D.position.copy(worldPosition);
+          return;
+        }
+
+        this.tempLocal.copy(worldPosition);
+        parent.worldToLocal(this.tempLocal);
+
+        this.el.object3D.position.copy(this.tempLocal);
+      }
+    });
+
+
+    // ========================================================
+    // HAND-GRABBER
+    // Greifen über die Nähe der Hand zur Modell-Hitbox.
+    // ========================================================
+
+    AFRAME.registerComponent('hand-grabber', {
+      schema: {
+        hand: {
+          type: 'string',
+          default: 'left'
+        },
+        handRadius: {
+          type: 'number',
+          default: 0.23
+        },
+        grabEvents: {
+          type: 'string',
+          default: 'gripdown,triggerdown,pinchstarted'
+        },
+        releaseEvents: {
+          type: 'string',
+          default: 'gripup,triggerup,pinchended'
+        }
+      },
+
+      init: function () {
+        this.grabbing = null;
+
+        this.worldHandPos = new THREE.Vector3();
+        this.closestPoint = new THREE.Vector3();
+        this.bounds = new THREE.Box3();
+
+        this.onGrabStart = this.onGrabStart.bind(this);
+        this.onGrabEnd = this.onGrabEnd.bind(this);
+
+        this.grabEventList = this.data.grabEvents
+          .split(',')
+          .map(name => name.trim())
+          .filter(Boolean);
+
+        this.releaseEventList = this.data.releaseEvents
+          .split(',')
+          .map(name => name.trim())
+          .filter(Boolean);
+
+        this.grabEventList.forEach(eventName => {
+          this.el.addEventListener(
+            eventName,
+            this.onGrabStart
+          );
+        });
+
+        this.releaseEventList.forEach(eventName => {
+          this.el.addEventListener(
+            eventName,
+            this.onGrabEnd
+          );
+        });
+
+        // Ein getrenntes Headset/Controller-Gerät soll
+        // kein Modell dauerhaft festhalten.
+        this.el.addEventListener(
+          'controllerdisconnected',
+          this.onGrabEnd
+        );
+      },
+
+      remove: function () {
+        this.onGrabEnd();
+
+        this.grabEventList.forEach(eventName => {
+          this.el.removeEventListener(
+            eventName,
+            this.onGrabStart
+          );
+        });
+
+        this.releaseEventList.forEach(eventName => {
+          this.el.removeEventListener(
+            eventName,
+            this.onGrabEnd
+          );
+        });
+
+        this.el.removeEventListener(
+          'controllerdisconnected',
+          this.onGrabEnd
+        );
+      },
+
+      onGrabStart: function () {
+        if (this.grabbing) return;
+
+        const target = this.findClosestTarget();
+
+        if (!target) return;
+
+        const manip = target.components.manipulable;
+
+        if (!manip) return;
+
+        manip.startGrab(this.el);
+      },
+
+      onGrabEnd: function () {
+        if (!this.grabbing) return;
+
+        const manip = this.grabbing.components.manipulable;
+
+        if (manip) {
+          manip.endGrab(this.el);
+        } else {
+          this.grabbing = null;
+        }
+      },
+
+      findClosestTarget: function () {
+        const candidates =
+          this.el.sceneEl.querySelectorAll('.interactable');
+
+        this.el.object3D.getWorldPosition(
+          this.worldHandPos
+        );
+
+        let bestTarget = null;
+        let bestDistance = Infinity;
+
+        for (let i = 0; i < candidates.length; i++) {
+          const candidate = candidates[i];
+
+          const hitbox =
+            candidate.querySelector('.hitbox') || candidate;
+
+          if (!hitbox || !hitbox.object3D) continue;
+
+          this.bounds.setFromObject(hitbox.object3D);
+
+          if (this.bounds.isEmpty()) continue;
+
+          this.closestPoint
+            .copy(this.worldHandPos)
+            .clamp(this.bounds.min, this.bounds.max);
+
+          const distance = this.worldHandPos.distanceTo(
+            this.closestPoint
+          );
+
+          if (
+            distance <= this.data.handRadius &&
+            distance < bestDistance
+          ) {
+            bestTarget = candidate;
+            bestDistance = distance;
+          }
+        }
+
+        return bestTarget;
+      }
+    });
+
+
+    // ========================================================
+    // HALLENBAUER
+    // Erzeugt die komplette Halle und alle 16 Stationen.
+    // ========================================================
+
+    AFRAME.registerComponent('chemistry-hall', {
+      init: function () {
+        this.cfg = HALL_CONFIG;
+
+        this.buildFloor();
+        this.buildCeiling();
+        this.buildWalls();
+        this.buildDoor();
+        this.buildLights();
+        this.buildStations();
+      },
+
+      make: function (tag, attributes, parent) {
+        const element = document.createElement(tag);
+
+        Object.entries(attributes || {}).forEach(
+          ([name, value]) => {
+            element.setAttribute(name, value);
+          }
+        );
+
+        (parent || this.el).appendChild(element);
+
+        return element;
+      },
+
+      box: function (
+        position,
+        width,
+        height,
+        depth,
+        material,
+        parent
+      ) {
+        return this.make('a-box', {
+          position: position.join(' '),
+          width: width,
+          height: height,
+          depth: depth,
+          material: material
+        }, parent);
+      },
+
+      // ------------------------------------------------------
+      // BODEN UND SPIELFELDMARKIERUNGEN
+      // ------------------------------------------------------
+
+      buildFloor: function () {
+        const c = this.cfg;
+
+        this.make('a-plane', {
+          id: 'hallFloor',
+          position: '0 0 0',
+          rotation: '-90 0 0',
+          width: c.width,
+          height: c.depth,
+          material: c.materials.floor
+        });
+
+        const lineMaterial = {
+          shader: 'flat',
+          color: '#ffffff'
+        };
+
+        const line = (x, z, width, height) => {
+          this.make('a-plane', {
+            position: `${x} 0.015 ${z}`,
+            rotation: '-90 0 0',
+            width: width,
+            height: height,
+            material: lineMaterial
+          });
+        };
+
+        line(0, -13, 40, 0.07);
+        line(0, 13, 40, 0.07);
+        line(-20, 0, 0.07, 26);
+        line(20, 0, 0.07, 26);
+        line(0, 0, 0.07, 26);
+
+        this.make('a-ring', {
+          position: '0 0.016 0',
+          rotation: '-90 0 0',
+          'radius-inner': 3.9,
+          'radius-outer': 4,
+          material: lineMaterial
+        });
+      },
+
+      // ------------------------------------------------------
+      // DECKE UND TRÄGER
+      // ------------------------------------------------------
+
+      buildCeiling: function () {
+        const c = this.cfg;
+
+        this.make('a-box', {
+          id: 'hallCeiling',
+          position: `0 ${c.height + 0.1} 0`,
+          width: c.width,
+          height: 0.2,
+          depth: c.depth,
+          material: c.materials.ceiling
+        });
+
+        [-12, 0, 12].forEach(x => {
+          this.box(
+            [x, c.height - 0.2, 0],
+            0.22,
+            0.35,
+            c.depth,
+            {
+              color: '#9b9b96',
+              roughness: 0.8,
+              metalness: 0.15
+            }
+          );
+        });
+      },
+
+      // ------------------------------------------------------
+      // VIER WÄNDE MIT ECHTEN ÖFFNUNGEN
+      // ------------------------------------------------------
+
+      buildWalls: function () {
+        const c = this.cfg;
+
+        // Fenster liegen oberhalb der Poster.
+        const windowBottom = 5.7;
+        const windowTop = 6.9;
+        const windowWidth = 3.2;
+
+        const windowsAt = centers => centers.map(center => ({
+          left: center - windowWidth / 2,
+          right: center + windowWidth / 2,
+          bottom: windowBottom,
+          top: windowTop,
+          type: 'window'
+        }));
+
+        this.buildWall(
+          'wallLeft',
+          [-c.width / 2, 0, 0],
+          90,
+          c.depth,
+          windowsAt([-10, 0, 10])
+        );
+
+        this.buildWall(
+          'wallRight',
+          [c.width / 2, 0, 0],
+          -90,
+          c.depth,
+          windowsAt([-10, 0, 10])
+        );
+
+        this.buildWall(
+          'wallBack',
+          [0, 0, c.depth / 2],
+          180,
+          c.width,
+          windowsAt([-14, 14])
+        );
+
+        this.buildWall(
+          'wallFront',
+          [0, 0, -c.depth / 2],
+          0,
+          c.width,
+          [
+            ...windowsAt([-14, 14]),
+            {
+              left: -2.1,
+              right: 2.1,
+              bottom: 0,
+              top: 3.2,
+              type: 'door'
+            }
+          ]
+        );
+      },
+
+      buildWall: function (
+        id,
+        position,
+        yaw,
+        length,
+        openings
+      ) {
+        const c = this.cfg;
+
+        const group = this.make('a-entity', {
+          id: id,
+          position: position.join(' '),
+          rotation: `0 ${yaw} 0`
+        });
+
+        // Die Wand wird in horizontale Höhenbereiche zerlegt.
+        const levels = [...new Set([
+          0,
+          c.height,
+          ...openings.flatMap(o => [o.bottom, o.top])
+        ])].sort((a, b) => a - b);
+
+        for (let row = 0; row < levels.length - 1; row++) {
+          const bottom = levels[row];
+          const top = levels[row + 1];
+          const middleY = (bottom + top) / 2;
+
+          const activeOpenings = openings
+            .filter(o =>
+              middleY > o.bottom &&
+              middleY < o.top
+            )
+            .sort((a, b) => a.left - b.left);
+
+          let cursor = -length / 2;
+
+          const addSection = (left, right) => {
+            if (right <= left) return;
+
+            this.box(
+              [(left + right) / 2, middleY, 0],
+              right - left,
+              top - bottom,
+              c.wallThickness,
+              c.materials.wall,
+              group
+            );
+          };
+
+          activeOpenings.forEach(opening => {
+            addSection(cursor, opening.left);
+            cursor = opening.right;
+          });
+
+          addSection(cursor, length / 2);
+        }
+
+        openings
+          .filter(o => o.type === 'window')
+          .forEach(o => this.buildWindow(o, group));
+      },
+
+      // ------------------------------------------------------
+      // FENSTERGLAS UND RAHMEN
+      // ------------------------------------------------------
+
+      buildWindow: function (opening, parent) {
+        const c = this.cfg;
+
+        const width = opening.right - opening.left;
+        const height = opening.top - opening.bottom;
+        const x = (opening.left + opening.right) / 2;
+        const y = (opening.bottom + opening.top) / 2;
+
+        const frameMaterial = {
+          color: '#e9e9e4',
+          roughness: 0.65,
+          metalness: 0.1
+        };
+
+        this.make('a-plane', {
+          position: `${x} ${y} 0`,
+          width: width,
+          height: height,
+          material: {
+            color: '#bde5ff',
+            transparent: true,
+            opacity: 0.22,
+            side: 'double',
+            roughness: 0.15,
+            metalness: 0,
+            depthWrite: false
+          }
+        }, parent);
+
+        // Seitliche Rahmen
+        [opening.left, opening.right].forEach(edgeX => {
+          this.box(
+            [edgeX, y, 0],
+            0.10,
+            height + 0.10,
+            c.wallThickness + 0.06,
+            frameMaterial,
+            parent
+          );
+        });
+
+        // Obere und untere Rahmen
+        [opening.bottom, opening.top].forEach(edgeY => {
+          this.box(
+            [x, edgeY, 0],
+            width + 0.10,
+            0.10,
+            c.wallThickness + 0.06,
+            frameMaterial,
+            parent
+          );
+        });
+
+        // Mittlere Sprosse
+        this.box(
+          [x, y, 0],
+          0.07,
+          height,
+          0.08,
+          frameMaterial,
+          parent
+        );
+      },
+
+      // ------------------------------------------------------
+      // EINGANGSTÜR
+      // ------------------------------------------------------
+
+      buildDoor: function () {
+        const z = -this.cfg.depth / 2;
+
+        const frameMaterial = {
+          color: '#6c4d34',
+          roughness: 0.85,
+          metalness: 0
+        };
+
+        this.box(
+          [-2.1, 1.6, z],
+          0.14, 3.2, 0.36,
+          frameMaterial
+        );
+
+        this.box(
+          [2.1, 1.6, z],
+          0.14, 3.2, 0.36,
+          frameMaterial
+        );
+
+        this.box(
+          [0, 3.2, z],
+          4.34, 0.14, 0.36,
+          frameMaterial
+        );
+
+        // Türblatt mit seitlichem Scharnierpunkt.
+        // Der Öffnungswinkel kann hier geändert werden.
+        const hinge = this.make('a-entity', {
+          id: 'entranceDoor',
+          position: `-2.03 0 ${z + 0.08}`,
+          rotation: '0 -70 0'
+        });
+
+        this.box(
+          [2.03, 1.56, 0],
+          4.06,
+          3.12,
+          0.10,
+          {
+            color: '#7f5a3d',
+            roughness: 0.8,
+            metalness: 0
+          },
+          hinge
+        );
+
+        // Türgriff
+        this.box(
+          [3.65, 1.3, 0.09],
+          0.28,
+          0.05,
+          0.08,
+          {
+            color: '#bfc3c6',
+            roughness: 0.3,
+            metalness: 0.8
+          },
+          hinge
+        );
+
+        // Eingangsschild
+        const sign = this.make('a-entity', {
+          position: `0 3.65 ${z + 0.22}`
+        });
+
+        this.make('a-plane', {
+          width: 2.3,
+          height: 0.45,
+          material: {
+            shader: 'flat',
+            color: '#237b50'
+          }
+        }, sign);
+
+        this.make('a-text', {
+          value: 'EINGANG',
+          align: 'center',
+          color: '#ffffff',
+          width: 2,
+          position: '0 0 0.015'
+        }, sign);
+      },
+
+      // ------------------------------------------------------
+      // DECKENLEUCHTEN UND BELEUCHTUNG
+      // ------------------------------------------------------
+
+      buildLights: function () {
+        const c = this.cfg;
+
+        // Neun sichtbare Deckenleuchten.
+        // +90 Grad lässt die Vorderseite nach unten zeigen.
+        [-12, 0, 12].forEach(x => {
+          [-10, 0, 10].forEach(z => {
+            this.make('a-plane', {
+              position: `${x} ${c.height - 0.03} ${z}`,
+              rotation: '90 0 0',
+              width: 5.2,
+              height: 1.2,
+              material: {
+                shader: 'flat',
+                color: '#fff4da'
+              }
+            });
+          });
+        });
+
+        // Grundbeleuchtung
+        this.make('a-entity', {
+          light: {
+            type: 'ambient',
+            color: '#ffffff',
+            intensity: 0.7
+          }
+        });
+
+        // Gerichtetes Licht für plastische Modelle
+        this.make('a-entity', {
+          position: '-10 7 5',
+          light: {
+            type: 'directional',
+            color: '#fff4e3',
+            intensity: 0.55
+          }
+        });
+
+        this.make('a-entity', {
+          position: '10 7 -5',
+          light: {
+            type: 'directional',
+            color: '#eaf3ff',
+            intensity: 0.35
+          }
+        });
+
+        // Drei zusätzliche Punktlichter.
+        // Weniger echte Lichtquellen als sichtbare Leuchten
+        // reduziert den Aufwand auf VR-Headsets.
+        [-10, 0, 10].forEach(z => {
+          this.make('a-entity', {
+            position: `0 ${c.height - 0.8} ${z}`,
+            light: {
+              type: 'point',
+              color: '#fff4e3',
+              intensity: 0.5,
+              distance: 40,
+              decay: 1
+            }
+          });
+        });
+      },
+
+      // ------------------------------------------------------
+      // POSTER UND ZUGEHÖRIGE MODELLE
+      // ------------------------------------------------------
+
+      buildStations: function () {
+        const c = this.cfg;
+
+        // Kleiner Abstand zur inneren Wandoberfläche,
+        // damit Poster und Wand nicht flimmern.
+        const inset = c.wallThickness / 2 + 0.06;
+
+        c.stations.forEach((station, index) => {
+          const number = String(index + 1).padStart(2, '0');
+
+          let x;
+          let z;
+          let yaw;
+          let nx;
+          let nz;
+
+          // nx/nz beschreiben die Richtung in den Raum.
+          switch (station.wall) {
+            case 'left':
+              x = -c.width / 2 + inset;
+              z = station.along;
+              yaw = 90;
+              nx = 1;
+              nz = 0;
+              break;
+
+            case 'right':
+              x = c.width / 2 - inset;
+              z = station.along;
+              yaw = -90;
+              nx = -1;
+              nz = 0;
+              break;
+
+            case 'back':
+              x = station.along;
+              z = c.depth / 2 - inset;
+              yaw = 180;
+              nx = 0;
+              nz = -1;
+              break;
+
+            case 'front':
+              x = station.along;
+              z = -c.depth / 2 + inset;
+              yaw = 0;
+              nx = 0;
+              nz = 1;
+              break;
+
+            default:
+              console.warn(
+                'Unbekannte Wand für Station:',
+                station
+              );
+              return;
+          }
+
+          // ==================================================
+          // POSTER
+          // ==================================================
+
+          const poster = this.make('a-entity', {
+            id: `poster${number}`,
+            position: `${x} ${c.posterCenterY} ${z}`,
+            rotation: `0 ${yaw} 0`
+          });
+
+          // Dunkler Rahmen
+          this.make('a-plane', {
+            width: c.posterWidth + 0.18,
+            height: c.posterHeight + 0.18,
+            material: {
+              shader: 'flat',
+              color: '#292d32'
+            }
+          }, poster);
+
+          // Folien sind unbeleuchtet dargestellt:
+          // Ihre Farben bleiben unabhängig vom Hallenlicht.
+          const slideMaterial = {
+            shader: 'flat',
+            color: station.slide ? '#ffffff' : '#f6f4ef'
+          };
+
+          if (station.slide) {
+            slideMaterial.src = station.slide;
+          }
+
+          this.make('a-plane', {
+            id: `slide${number}`,
+            width: c.posterWidth,
+            height: c.posterHeight,
+            position: '0 0 0.015',
+            material: slideMaterial
+          }, poster);
+
+          // Platzhaltertext nur ohne eingetragenes Folienbild.
+          if (!station.slide) {
+            this.make('a-text', {
+              value:
+                `Poster ${number}\n` +
+                `${station.title}\n` +
+                '16:9 - Vorlesungsfolie',
+              align: 'center',
+              color: '#303942',
+              width: c.posterWidth - 0.3,
+              position: '0 0 0.03'
+            }, poster);
+          }
+
+          // ==================================================
+          // MODELL
+          //
+          // Das Modell ist kein Kind des Posters.
+          // Es lässt sich frei im Raum bewegen.
+          // ==================================================
+
+          const modelRoot = this.make('a-entity', {
+            id: `model${number}`,
+            class: 'interactable',
+            position:
+              `${x + nx * c.modelWallDistance} ` +
+              `${c.modelCenterY} ` +
+              `${z + nz * c.modelWallDistance}`
+          });
+
+          // Körper für Modell und Greifbox.
+          const body = this.make('a-entity', {
+            class: 'manip-body'
+          }, modelRoot);
+
+          // Die Größen entsprechen näherungsweise den
+          // Greifboxen aus deiner bisherigen Umgebung.
+          const hitboxSize = station.model
+            ? (station.model === '#diamant' ? 2.6 : 2.8)
+            : 1.1;
+
+          this.make('a-box', {
+            class: 'hitbox',
+            width: hitboxSize,
+            height: hitboxSize,
+            depth: hitboxSize,
+            material: {
+              transparent: true,
+              opacity: 0,
+              depthWrite: false
+            }
+          }, body);
+
+          if (station.model) {
+            const scale = station.scale || 1;
+
+            const model = this.make('a-entity', {
+              'gltf-model': station.model,
+              scale: `${scale} ${scale} ${scale}`
+            }, body);
+
+            model.addEventListener('model-error', () => {
+              console.warn(
+                `Modell an Station ${number} konnte ` +
+                'nicht geladen werden:',
+                station.model
+              );
+            });
+
+          } else {
+            // Auch die Platzhalter lassen sich greifen,
+            // bewegen, drehen und skalieren.
+            this.make('a-sphere', {
+              radius: 0.45,
+              material: {
+                color: '#6487a6',
+                wireframe: true
+              }
+            }, body);
+
+            this.make('a-sphere', {
+              radius: 0.12,
+              material: {
+                color: '#e2a35b',
+                roughness: 0.5
+              }
+            }, body);
+          }
+
+          // Beschriftung außerhalb von .manip-body:
+          // Sie folgt der Position, aber nicht der
+          // Drehung oder Skalierung des Modellkörpers.
+          this.make('a-text', {
+            value: station.model
+              ? station.title
+              : `Modellplatz ${number}`,
+            position: '0 -0.95 0',
+            align: 'center',
+            color: '#263440',
+            width: 2.8,
+            billboard: ''
+          }, modelRoot);
+
+          // Erst nach Aufbau des Modellkörpers aktivieren.
+          // Keine Obergrenze für die Skalierung.
+          modelRoot.setAttribute(
+            'manipulable',
+            'minScale: 0.02; maxScale: 0'
+          );
+        });
+      }
+    });
+  </script>
 </head>
+
 <body>
+  <a-scene
+    background="color: #b8d7f0"
+    renderer="colorManagement: true; antialias: true"
+    vr-mode-ui="enabled: true">
 
-<a-scene background="color: #b8d7f0" renderer="colorManagement: true; antialias: true" vr-mode-ui="enabled: true">
+    <!-- ==================================================== -->
+    <!-- MODELLDATEIEN                                       -->
+    <!-- Diese Dateien liegen neben der index.html.          -->
+    <!-- ==================================================== -->
 
-  <!-- ===== ASSETS ===== -->
-  <a-assets>
-    <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
-    <a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
-    <a-asset-item id="eis" src="Eis2.glb"></a-asset-item>
-    <a-asset-item id="mgcl2" src="MgCl2.glb"></a-asset-item>
-    <a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
-    <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
-  </a-assets>
+    <a-assets timeout="30000">
+      <a-asset-item
+        id="diamant"
+        src="Diamant.glb">
+      </a-asset-item>
 
-  <!-- Außenhimmel, sichtbar durch die offene Tür / gedachte Fensterflächen -->
-  <a-sky color="#b8d7f0"></a-sky>
+      <a-asset-item
+        id="graphit"
+        src="Graphit.glb">
+      </a-asset-item>
 
-  <!-- ===== SPIELER / KAMERA / HÄNDE ===== -->
-  <a-entity id="rig" movement-controls="speed: 0.22">
-    <a-entity id="camera" camera position="0 1.6 12" look-controls>
-      <a-cursor rayOrigin="mouse" fuse="false" material="color: #333333"></a-cursor>
+      <a-asset-item
+        id="eis"
+        src="Eis2.glb">
+      </a-asset-item>
+
+      <a-asset-item
+        id="mgcl2"
+        src="MgCl2.glb">
+      </a-asset-item>
+
+      <a-asset-item
+        id="imidazol"
+        src="Imidazol.glb">
+      </a-asset-item>
+
+      <a-asset-item
+        id="bodipy"
+        src="BODIPY.glb">
+      </a-asset-item>
+
+      <!-- Weitere Modelle kannst du hier ergänzen:
+      <a-asset-item
+        id="nacl"
+        src="NaCl.glb">
+      </a-asset-item>
+      -->
+    </a-assets>
+
+    <!-- Außenhimmel, sichtbar durch Fenster und Eingang -->
+    <a-sky color="#b8d7f0"></a-sky>
+
+    <!-- ==================================================== -->
+    <!-- SPIELER, KAMERA UND CONTROLLER                      -->
+    <!-- ==================================================== -->
+
+    <!--
+      Die Startposition gehört zum Rig.
+      Dadurch sind Kamera und Controller gemeinsam versetzt.
+
+      Bewegung:
+      - Am Computer über die movement-controls, z. B. WASD.
+      - In VR über unterstützte Controller-Eingaben.
+    -->
+    <a-entity
+      id="rig"
+      position="0 0 11"
+      movement-controls="speed: 0.22">
+
+      <a-entity
+        id="camera"
+        camera
+        position="0 1.6 0"
+        look-controls>
+
+        <a-cursor
+          rayOrigin="mouse"
+          fuse="false"
+          material="color: #333333">
+        </a-cursor>
+      </a-entity>
+
+      <!-- Linker Controller -->
+      <a-entity
+        id="leftHand"
+        hand-controls="hand: left; handModelStyle: lowPoly; color: #335CFF"
+        hand-grabber="hand: left; handRadius: 0.23; grabEvents: gripdown,triggerdown,pinchstarted; releaseEvents: gripup,triggerup,pinchended">
+
+        <a-sphere
+          radius="0.025"
+          color="#335CFF"
+          opacity="0.45">
+        </a-sphere>
+      </a-entity>
+
+      <!-- Rechter Controller -->
+      <a-entity
+        id="rightHand"
+        hand-controls="hand: right; handModelStyle: lowPoly; color: #FF4B4B"
+        hand-grabber="hand: right; handRadius: 0.23; grabEvents: gripdown,triggerdown,pinchstarted; releaseEvents: gripup,triggerup,pinchended">
+
+        <a-sphere
+          radius="0.025"
+          color="#FF4B4B"
+          opacity="0.45">
+        </a-sphere>
+      </a-entity>
     </a-entity>
+
+    <!-- ==================================================== -->
+    <!-- DIE HALLE WIRD DURCH DIE KOMPONENTE ERZEUGT          -->
+    <!-- ==================================================== -->
 
     <a-entity
-      id="leftHand"
-      hand-controls="hand: left; handModelStyle: lowPoly; color: #335CFF"
-      hand-grabber="hand: left; handRadius: 0.23; grabEvents: gripdown,triggerdown,pinchstarted; releaseEvents: gripup,triggerup,pinchended">
-      <a-sphere radius="0.025" color="#335CFF" opacity="0.45"></a-sphere>
+      id="chemistryHall"
+      chemistry-hall>
     </a-entity>
 
-    <a-entity
-      id="rightHand"
-      hand-controls="hand: right; handModelStyle: lowPoly; color: #FF4B4B"
-      hand-grabber="hand: right; handRadius: 0.23; grabEvents: gripdown,triggerdown,pinchstarted; releaseEvents: gripup,triggerup,pinchended">
-      <a-sphere radius="0.025" color="#FF4B4B" opacity="0.45"></a-sphere>
+    <!-- ==================================================== -->
+    <!-- HINWEISTAFEL AM STARTPUNKT                           -->
+    <!-- ==================================================== -->
+
+    <a-entity position="0 1.9 7">
+      <a-plane
+        width="5.4"
+        height="1.3"
+        material="shader: flat; color: #ffffff">
+      </a-plane>
+
+      <a-text
+        value="VR-Chemiehalle\nGrip/Trigger: greifen, bewegen und drehen\nZwei Controller: Modell skalieren\n16 Stationen mit Folien und 3D-Modellen"
+        align="center"
+        color="#10263d"
+        width="4.8"
+        position="0 0 0.02">
+      </a-text>
     </a-entity>
-  </a-entity>
 
-  <!-- ======================================================= -->
-  <!-- HALLENMATERIALIEN: HIER SPÄTER FARBE / MATERIAL ÄNDERN -->
-  <!-- ======================================================= -->
-
-  <!-- BODEN: ändere hier color / roughness / metalness -->
-  <a-plane
-    id="hallFloor"
-    position="0 0 0"
-    rotation="-90 0 0"
-    width="48"
-    height="34"
-    material="color: #c8925c; roughness: 0.92; metalness: 0.04">
-  </a-plane>
-
-  <!-- Spielfeldmarkierungen -->
-  <a-plane position="0 0.01 0" rotation="-90 0 0" width="44" height="30" material="color: #ffffff; opacity: 0.0"></a-plane>
-  <a-plane position="0 0.012 -15" rotation="-90 0 0" width="44" height="0.08" color="#ffffff"></a-plane>
-  <a-plane position="0 0.012 15" rotation="-90 0 0" width="44" height="0.08" color="#ffffff"></a-plane>
-  <a-plane position="-22 0.012 0" rotation="-90 0 0" width="0.08" height="30" color="#ffffff"></a-plane>
-  <a-plane position="22 0.012 0" rotation="-90 0 0" width="0.08" height="30" color="#ffffff"></a-plane>
-  <a-ring position="0 0.013 0" rotation="-90 0 0" radius-inner="3.9" radius-outer="4.0" color="#ffffff"></a-ring>
-  <a-plane position="0 0.012 0" rotation="-90 0 0" width="0.08" height="30" color="#ffffff"></a-plane>
-
-  <!-- DECKE: ändere hier color / roughness / metalness -->
-  <a-box
-    id="hallCeiling"
-    position="0 8 0"
-    width="48"
-    height="0.2"
-    depth="34"
-    material="color: #f2f2ee; roughness: 0.95; metalness: 0.02">
-  </a-box>
-
-  <!-- WÄNDE: ändere hier color / roughness / metalness -->
-  <a-box id="wallLeft" position="-24 4 0" width="0.3" height="8" depth="34" material="color: #ddd7cc; roughness: 1; metalness: 0"></a-box>
-  <a-box id="wallRight" position="24 4 0" width="0.3" height="8" depth="34" material="color: #ddd7cc; roughness: 1; metalness: 0"></a-box>
-  <a-box id="wallBack" position="0 4 17" width="48" height="8" depth="0.3" material="color: #ddd7cc; roughness: 1; metalness: 0"></a-box>
-
-  <!-- Vorderwand mit Türöffnung -->
-  <a-box id="frontWallLeft" position="-13.05 4 -17" width="21.9" height="8" depth="0.3" material="color: #ddd7cc; roughness: 1; metalness: 0"></a-box>
-  <a-box id="frontWallRight" position="13.05 4 -17" width="21.9" height="8" depth="0.3" material="color: #ddd7cc; roughness: 1; metalness: 0"></a-box>
-  <a-box id="frontWallTop" position="0 6.4 -17" width="4.2" height="3.2" depth="0.3" material="color: #ddd7cc; roughness: 1; metalness: 0"></a-box>
-
-  <!-- Türrahmen -->
-  <a-box position="-2.1 2.4 -16.92" width="0.14" height="4.8" depth="0.18" color="#6c4d34"></a-box>
-  <a-box position="2.1 2.4 -16.92" width="0.14" height="4.8" depth="0.18" color="#6c4d34"></a-box>
-  <a-box position="0 4.8 -16.92" width="4.34" height="0.16" depth="0.18" color="#6c4d34"></a-box>
-
-  <!-- Türblatt, leicht geöffnet -->
-  <a-box position="-0.95 2.3 -16.72" rotation="0 28 0" width="1.95" height="4.55" depth="0.08" material="color: #7f5a3d; roughness: 0.85; metalness: 0.02"></a-box>
-
-  <!-- Fenster hoch an den Wänden, nicht auf Posterhöhe -->
-  <a-plane position="-23.83 6.15 -10" rotation="0 90 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-  <a-plane position="-23.83 6.15 0" rotation="0 90 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-  <a-plane position="-23.83 6.15 10" rotation="0 90 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-
-  <a-plane position="23.83 6.15 -10" rotation="0 -90 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-  <a-plane position="23.83 6.15 0" rotation="0 -90 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-  <a-plane position="23.83 6.15 10" rotation="0 -90 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-
-  <a-plane position="-14 6.15 16.82" rotation="0 180 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-  <a-plane position="14 6.15 16.82" rotation="0 180 0" width="3.2" height="1.1" material="color: #a7d8ff; opacity: 0.38; transparent: true; emissive: #7ec7ff; emissiveIntensity: 0.12"></a-plane>
-
-  <!-- ===== DECKENLICHTER ===== -->
-  <a-plane position="-12 7.88 -10" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="0 7.88 -10" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="12 7.88 -10" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="-12 7.88 0" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="0 7.88 0" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="12 7.88 0" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="-12 7.88 10" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="0 7.88 10" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-  <a-plane position="12 7.88 10" rotation="-90 0 0" width="5.2" height="1.2" material="color: #fff6d8; emissive: #fff2c2; emissiveIntensity: 0.95"></a-plane>
-
-  <a-entity light="type: ambient; intensity: 0.95"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="-12 7.2 -10"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="0 7.2 -10"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="12 7.2 -10"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="-12 7.2 0"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="0 7.2 0"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="12 7.2 0"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="-12 7.2 10"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="0 7.2 10"></a-entity>
-  <a-entity light="type: point; intensity: 0.55; distance: 18; decay: 2" position="12 7.2 10"></a-entity>
-
-  <!-- ===== HINWEISTAFEL ===== -->
-  <a-entity position="0 2.7 11">
-    <a-plane width="6.8" height="1.6" color="#ffffff" opacity="0.8"></a-plane>
-    <a-text value="VR-Chemiehalle\nGrip/Trigger: Modell greifen, bewegen, drehen\nBeide Hände: Größe ändern\n16 Posterplätze sind im Raum vorbereitet" align="center" color="#10263d" width="6.1" position="0 0 0.01"></a-text>
-  </a-entity>
-
-  <!-- ======================================================= -->
-  <!-- POSTERPLÄTZE 16:9 -->
-  <!-- Später kannst du in jedem Posterblock den Platzhalter durch -->
-  <!-- eine echte Folie ersetzen. -->
-  <!-- ======================================================= -->
-
-  <!-- Linke Wand: 5 Poster -->
-  <a-entity id="poster01" position="-23.78 4.25 -12" rotation="0 90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 01\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster02" position="-23.78 4.25 -6" rotation="0 90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 02\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster03" position="-23.78 4.25 0" rotation="0 90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 03\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster04" position="-23.78 4.25 6" rotation="0 90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 04\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster05" position="-23.78 4.25 12" rotation="0 90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 05\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <!-- Rechte Wand: 5 Poster -->
-  <a-entity id="poster06" position="23.78 4.25 -12" rotation="0 -90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 06\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster07" position="23.78 4.25 -6" rotation="0 -90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 07\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster08" position="23.78 4.25 0" rotation="0 -90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 08\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster09" position="23.78 4.25 6" rotation="0 -90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 09\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster10" position="23.78 4.25 12" rotation="0 -90 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 10\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <!-- Rückwand: 4 Poster -->
-  <a-entity id="poster11" position="-16 4.25 16.78" rotation="0 180 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 11\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster12" position="-5.3 4.25 16.78" rotation="0 180 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 12\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster13" position="5.3 4.25 16.78" rotation="0 180 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 13\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster14" position="16 4.25 16.78" rotation="0 180 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 14\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <!-- Vorderwand: 2 Poster neben der Tür -->
-  <a-entity id="poster15" position="-10.5 4.25 -16.78" rotation="0 0 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 15\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <a-entity id="poster16" position="10.5 4.25 -16.78" rotation="0 0 0">
-    <a-plane width="3.46" height="2.06" color="#242424"></a-plane>
-    <a-plane width="3.2" height="1.8" position="0 0 0.01" color="#f6f4ef"></a-plane>
-    <a-text value="Poster 16\n16:9 Platzhalter" align="center" color="#333333" width="2.9" position="0 0 0.02"></a-text>
-  </a-entity>
-
-  <!-- ======================================================= -->
-  <!-- REALE MODELLE (6 vorhandene GLB-Dateien) -->
-  <!-- ======================================================= -->
-
-  <a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="-20.6 2.1 -12">
-    <a-entity class="manip-body">
-      <a-box class="hitbox" width="2.6" height="2.6" depth="2.6" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
-      <a-entity gltf-model="#diamant" scale="0.55 0.55 0.55"></a-entity>
-    </a-entity>
-    <a-text value="Diamant" position="0 1.9 0" align="center" color="black" billboard></a-text>
-  </a-entity>
-
-  <a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="-20.6 2.1 -6">
-    <a-entity class="manip-body">
-      <a-box class="hitbox" width="2.8" height="2.8" depth="2.8" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
-      <a-entity gltf-model="#graphit" scale="0.55 0.55 0.55"></a-entity>
-    </a-entity>
-    <a-text value="Graphit" position="0 1.9 0" align="center" color="black" billboard></a-text>
-  </a-entity>
-
-  <a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="20.6 2.0 -12">
-    <a-entity class="manip-body">
-      <a-box class="hitbox" width="2.8" height="2.8" depth="2.8" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
-      <a-entity gltf-model="#eis" scale="42 42 42"></a-entity>
-    </a-entity>
-    <a-text value="Eis" position="0 1.9 0" align="center" color="black" billboard></a-text>
-  </a-entity>
-
-  <a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="20.6 2.1 -6">
-    <a-entity class="manip-body">
-      <a-box class="hitbox" width="2.8" height="2.8" depth="2.8" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
-      <a-entity gltf-model="#mgcl2" scale="0.55 0.55 0.55"></a-entity>
-    </a-entity>
-    <a-text value="MgCl2" position="0 1.9 0" align="center" color="black" billboard></a-text>
-  </a-entity>
-
-  <a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="-16 2.15 13.8">
-    <a-entity class="manip-body">
-      <a-box class="hitbox" width="2.8" height="2.8" depth="2.8" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
-      <a-entity gltf-model="#imidazol" scale="0.55 0.55 0.55"></a-entity>
-    </a-entity>
-    <a-text value="Imidazol" position="0 1.9 0" align="center" color="black" billboard></a-text>
-  </a-entity>
-
-  <a-entity class="interactable" manipulable="minScale: 0.02; maxScale: 0" position="16 2.15 13.8">
-    <a-entity class="manip-body">
-      <a-box class="hitbox" width="2.8" height="2.8" depth="2.8" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
-      <a-entity gltf-model="#bodipy" scale="0.5 0.5 0.5"></a-entity>
-    </a-entity>
-    <a-text value="BODIPY" position="0 1.9 0" align="center" color="black" billboard></a-text>
-  </a-entity>
-
-  <!-- ======================================================= -->
-  <!-- MODELL-PLATZHALTER für weitere Vorlesungsfolien -->
-  <!-- Diese kannst du später durch echte GLB-Modelle ersetzen. -->
-  <!-- ======================================================= -->
-
-  <a-entity position="-20.6 2.0 0">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="-20.6 2.0 6">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="-20.6 2.0 12">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="20.6 2.0 0">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="20.6 2.0 6">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="20.6 2.0 12">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="-5.3 2.0 13.8">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="5.3 2.0 13.8">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="-10.5 2.0 -13.8">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-  <a-entity position="10.5 2.0 -13.8">
-    <a-sphere radius="0.34" material="color: #9aa3ad; transparent: true; opacity: 0.25; wireframe: true"></a-sphere>
-    <a-text value="Modell-Slot" position="0 0.7 0" width="2.4" align="center" color="#555555" billboard></a-text>
-  </a-entity>
-
-</a-scene>
-
+  </a-scene>
 </body>
 </html>
