@@ -29,238 +29,203 @@
     // ========================================================
 
     const HALL_CONFIG = {
-      // Abmessungen der Halle in Metern
-      width: 48,
-      depth: 34,
-      height: 8,
-      wallThickness: 0.3,
+  // Grundfläche: ungefähr 2/3 der bisherigen Seitenlängen
+  width: 32,
+  depth: 22.67,
+  height: 8,
+  wallThickness: 0.3,
 
-      // ======================================================
-      // HIER FARBE UND MATERIAL ÄNDERN
-      //
-      // color:
-      //   Grundfarbe als Hex-Farbwert.
-      //
-      // roughness:
-      //   0 = glatt / glänzend
-      //   1 = rau / matt
-      //
-      // metalness:
-      //   0 = nichtmetallisch
-      //   1 = metallisch
-      //
-      // src:
-      //   Optionaler Pfad zu einer Textur.
-      //
-      // repeat:
-      //   Wiederholung der Textur.
-      // ======================================================
+  // ======================================================
+  // FARBE UND MATERIAL DER HALLE
+  // ======================================================
 
-      materials: {
-        // BODEN
-        floor: {
-          color: '#c8925c',
-          roughness: 0.85,
-          metalness: 0.02
+  materials: {
+    floor: {
+      color: '#c8925c',
+      roughness: 0.85,
+      metalness: 0.02
 
-          // Für eine Textur die folgenden Zeilen aktivieren:
-          // ,src: 'texturen/parkett.jpg'
-          // ,repeat: '12 8'
-        },
+      // Optional:
+      // ,src: 'texturen/parkett.jpg'
+      // ,repeat: '8 6'
+    },
 
-        // ALLE WÄNDE
-        wall: {
-          color: '#ddd7cc',
-          roughness: 1,
-          metalness: 0
+    wall: {
+      color: '#ddd7cc',
+      roughness: 1,
+      metalness: 0
+    },
 
-          // Optional:
-          // ,src: 'texturen/putz.jpg'
-          // ,repeat: '4 2'
-        },
+    ceiling: {
+      color: '#f2f2ee',
+      roughness: 0.95,
+      metalness: 0
+    }
+  },
 
-        // DECKE
-        ceiling: {
-          color: '#f2f2ee',
-          roughness: 0.95,
-          metalness: 0
+  // ======================================================
+  // POSTER: 1,5-MAL SO BREIT UND HOCH
+  // ======================================================
 
-          // Optional:
-          // ,src: 'texturen/decke.jpg'
-          // ,repeat: '8 6'
-        }
-      },
+  posterWidth: 4.8,
+  posterHeight: 2.7,
+  posterCenterY: 3.0,
 
-      // ======================================================
-      // POSTER UND MODELLPOSITIONEN
-      // ======================================================
+  modelCenterY: 1.45,
+  modelWallDistance: 2.7,
 
-      posterWidth: 3.2,
-      posterHeight: 1.8,       // Seitenverhältnis 16:9
-      posterCenterY: 2.9,      // Höhe der Postermitte
+  // ======================================================
+  // FOLIEN UND MODELLE
+  //
+  // slide: Hier den Pfad zur JPG-/PNG-Folie eintragen.
+  // model: Hier die Asset-ID des Modells eintragen.
+  // scale: Anfangsgröße des Modells.
+  //
+  // Beispiel:
+  // slide: 'folien/diamant.jpg',
+  // model: '#diamant',
+  // scale: 0.55
+  // ======================================================
 
-      modelCenterY: 1.45,      // Höhe der Modellmitte
-      modelWallDistance: 2.7,  // Abstand vor dem Poster
+  stations: [
+    // LINKE WAND
+    {
+      wall: 'left',
+      along: -8.1,
+      title: 'Diamant',
+      slide: 'Kohlenstoff.jpg',
+      model: '#diamant',
+      scale: 0.55
+    },
+    {
+      wall: 'left',
+      along: -2.7,
+      title: 'Graphit',
+      slide: '',
+      model: '#graphit',
+      scale: 0.55
+    },
+    {
+      wall: 'left',
+      along: 2.7,
+      title: 'Station 03',
+      slide: '',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'left',
+      along: 8.1,
+      title: 'Station 04',
+      slide: '',
+      model: '',
+      scale: 1
+    },
 
-      // ======================================================
-      // DIE 16 STATIONEN
-      //
-      // wall:
-      //   'left', 'right', 'back' oder 'front'
-      //
-      // along:
-      //   Position entlang der betreffenden Wand.
-      //
-      // slide:
-      //   '' = Platzhalter
-      //   Beispiel: 'folien/folie01.png'
-      //
-      // model:
-      //   '' = Modellplatzhalter
-      //   Sonst die ID aus <a-assets>, z. B. '#diamant'
-      //
-      // scale:
-      //   Anfangsskalierung der jeweiligen GLB-Datei.
-      // ======================================================
+    // RECHTE WAND
+    {
+      wall: 'right',
+      along: -8.1,
+      title: 'Eis',
+      slide: '',
+      model: '#eis',
+      scale: 42
+    },
+    {
+      wall: 'right',
+      along: -2.7,
+      title: 'MgCl2',
+      slide: 'NaCl.jpg',
+      model: '#mgcl2',
+      scale: 0.55
+    },
+    {
+      wall: 'right',
+      along: 2.7,
+      title: 'Station 07',
+      slide: '',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'right',
+      along: 8.1,
+      title: 'Station 08',
+      slide: '',
+      model: '',
+      scale: 1
+    },
 
-      stations: [
-        // Linke Wand: 5 Stationen
-        {
-          wall: 'left',
-          along: -12,
-          title: 'Diamant',
-          slide: '',
-          model: '#diamant',
-          scale: 0.55
-        },
-        {
-          wall: 'left',
-          along: -6,
-          title: 'Graphit',
-          slide: '',
-          model: '#graphit',
-          scale: 0.55
-        },
-        {
-          wall: 'left',
-          along: 0,
-          title: 'Station 03',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'left',
-          along: 6,
-          title: 'Station 04',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'left',
-          along: 12,
-          title: 'Station 05',
-          slide: '',
-          model: '',
-          scale: 1
-        },
+    // RÜCKWAND
+    {
+      wall: 'back',
+      along: -11,
+      title: 'Imidazol',
+      slide: '',
+      model: '#imidazol',
+      scale: 0.55
+    },
+    {
+      wall: 'back',
+      along: -3.7,
+      title: 'Station 10',
+      slide: 'Talk.jpg',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'back',
+      along: 3.7,
+      title: 'Station 11',
+      slide: '',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'back',
+      along: 11,
+      title: 'BODIPY',
+      slide: '',
+      model: '#bodipy',
+      scale: 0.5
+    },
 
-        // Rechte Wand: 5 Stationen
-        {
-          wall: 'right',
-          along: -12,
-          title: 'Eis',
-          slide: '',
-          model: '#eis',
-          scale: 42
-        },
-        {
-          wall: 'right',
-          along: -6,
-          title: 'MgCl2',
-          slide: '',
-          model: '#mgcl2',
-          scale: 0.55
-        },
-        {
-          wall: 'right',
-          along: 0,
-          title: 'Station 08',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'right',
-          along: 6,
-          title: 'Station 09',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'right',
-          along: 12,
-          title: 'Station 10',
-          slide: '',
-          model: '',
-          scale: 1
-        },
+    // VORDERWAND: ZWEI POSTER LINKS UND ZWEI RECHTS DER TÜR
+    {
+      wall: 'front',
+      along: -11,
+      title: 'Station 13',
+      slide: '',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'front',
+      along: -5.4,
+      title: 'Station 14',
+      slide: '',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'front',
+      along: 5.4,
+      title: 'Station 15',
+      slide: '',
+      model: '',
+      scale: 1
+    },
+    {
+      wall: 'front',
+      along: 11,
+      title: 'Station 16',
+      slide: '',
+      model: '',
+      scale: 1
+    }
+  ]
+};
 
-        // Rückwand: 4 Stationen
-        {
-          wall: 'back',
-          along: -16,
-          title: 'Imidazol',
-          slide: '',
-          model: '#imidazol',
-          scale: 0.55
-        },
-        {
-          wall: 'back',
-          along: -5.3,
-          title: 'Station 12',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'back',
-          along: 5.3,
-          title: 'Station 13',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'back',
-          along: 16,
-          title: 'BODIPY',
-          slide: '',
-          model: '#bodipy',
-          scale: 0.5
-        },
-
-        // Vorderwand: 2 Stationen neben dem Eingang
-        {
-          wall: 'front',
-          along: -10.5,
-          title: 'Station 15',
-          slide: '',
-          model: '',
-          scale: 1
-        },
-        {
-          wall: 'front',
-          along: 10.5,
-          title: 'Station 16',
-          slide: '',
-          model: '',
-          scale: 1
-        }
-      ]
-    };
 
 
     // ========================================================
@@ -774,47 +739,49 @@
       // BODEN UND SPIELFELDMARKIERUNGEN
       // ------------------------------------------------------
 
-      buildFloor: function () {
-        const c = this.cfg;
+     buildFloor: function () {
+  const c = this.cfg;
 
-        this.make('a-plane', {
-          id: 'hallFloor',
-          position: '0 0 0',
-          rotation: '-90 0 0',
-          width: c.width,
-          height: c.depth,
-          material: c.materials.floor
-        });
+  this.make('a-plane', {
+    id: 'hallFloor',
+    position: '0 0 0',
+    rotation: '-90 0 0',
+    width: c.width,
+    height: c.depth,
+    material: c.materials.floor
+  });
 
-        const lineMaterial = {
-          shader: 'flat',
-          color: '#ffffff'
-        };
+  const lineMaterial = {
+    shader: 'flat',
+    color: '#ffffff'
+  };
 
-        const line = (x, z, width, height) => {
-          this.make('a-plane', {
-            position: `${x} 0.015 ${z}`,
-            rotation: '-90 0 0',
-            width: width,
-            height: height,
-            material: lineMaterial
-          });
-        };
+  const line = (x, z, width, height) => {
+    this.make('a-plane', {
+      position: `${x} 0.015 ${z}`,
+      rotation: '-90 0 0',
+      width: width,
+      height: height,
+      material: lineMaterial
+    });
+  };
 
-        line(0, -13, 40, 0.07);
-        line(0, 13, 40, 0.07);
-        line(-20, 0, 0.07, 26);
-        line(20, 0, 0.07, 26);
-        line(0, 0, 0.07, 26);
+  // Verkleinertes Spielfeld
+  line(0, -9, 26, 0.07);
+  line(0, 9, 26, 0.07);
+  line(-13, 0, 0.07, 18);
+  line(13, 0, 0.07, 18);
+  line(0, 0, 0.07, 18);
 
-        this.make('a-ring', {
-          position: '0 0.016 0',
-          rotation: '-90 0 0',
-          'radius-inner': 3.9,
-          'radius-outer': 4,
-          material: lineMaterial
-        });
-      },
+  this.make('a-ring', {
+    position: '0 0.016 0',
+    rotation: '-90 0 0',
+    'radius-inner': 2.6,
+    'radius-outer': 2.68,
+    material: lineMaterial
+  });
+},
+
 
       // ------------------------------------------------------
       // DECKE UND TRÄGER
@@ -832,7 +799,7 @@
           material: c.materials.ceiling
         });
 
-        [-12, 0, 12].forEach(x => {
+        [-10, 0, 10].forEach(x => {
           this.box(
             [x, c.height - 0.2, 0],
             0.22,
@@ -872,7 +839,7 @@
           [-c.width / 2, 0, 0],
           90,
           c.depth,
-          windowsAt([-10, 0, 10])
+          windowsAt([-7, 0, 7])
         );
 
         this.buildWall(
@@ -880,7 +847,7 @@
           [c.width / 2, 0, 0],
           -90,
           c.depth,
-          windowsAt([-10, 0, 10])
+          windowsAt([-7, 0, 7])
         );
 
         this.buildWall(
@@ -888,7 +855,7 @@
           [0, 0, c.depth / 2],
           180,
           c.width,
-          windowsAt([-14, 14])
+          windowsAt([-10, 10])
         );
 
         this.buildWall(
@@ -897,7 +864,7 @@
           0,
           c.width,
           [
-            ...windowsAt([-14, 14]),
+            ...windowsAt([-10, 10]),
             {
               left: -2.1,
               right: 2.1,
@@ -1137,8 +1104,8 @@
 
         // Neun sichtbare Deckenleuchten.
         // +90 Grad lässt die Vorderseite nach unten zeigen.
-        [-12, 0, 12].forEach(x => {
-          [-10, 0, 10].forEach(z => {
+       [-10, 0, 10].forEach(x => {
+         [-7, 0, 7].forEach(z => {
             this.make('a-plane', {
               position: `${x} ${c.height - 0.03} ${z}`,
               rotation: '90 0 0',
@@ -1183,7 +1150,7 @@
         // Drei zusätzliche Punktlichter.
         // Weniger echte Lichtquellen als sichtbare Leuchten
         // reduziert den Aufwand auf VR-Headsets.
-        [-10, 0, 10].forEach(z => {
+        [-7, 0, 7].forEach(z => {
           this.make('a-entity', {
             position: `0 ${c.height - 0.8} ${z}`,
             light: {
@@ -1411,6 +1378,213 @@
       }
     });
   </script>
+
+  <script>
+  // ========================================================
+  // AUSSENBEREICH
+  // Blauer Himmel wird durch <a-sky> dargestellt.
+  // Diese Komponente ergänzt Boden, Weg, Bäume und Wolken.
+  // ========================================================
+
+  AFRAME.registerComponent('park-exterior', {
+    init: function () {
+      this.buildGround();
+      this.buildPath();
+      this.buildTrees();
+      this.buildClouds();
+    },
+
+    make: function (tag, attributes, parent) {
+      const element = document.createElement(tag);
+
+      Object.entries(attributes || {}).forEach(
+        ([name, value]) => {
+          element.setAttribute(name, value);
+        }
+      );
+
+      (parent || this.el).appendChild(element);
+
+      return element;
+    },
+
+    buildGround: function () {
+      // Liegt etwas unterhalb des Hallenbodens.
+      this.make('a-plane', {
+        position: '0 -0.04 0',
+        rotation: '-90 0 0',
+        width: 180,
+        height: 180,
+        material: {
+          color: '#79a95c',
+          roughness: 1,
+          metalness: 0
+        }
+      });
+    },
+
+    buildPath: function () {
+      const doorZ = -HALL_CONFIG.depth / 2;
+      const pathLength = 55;
+
+      // Weg beginnt direkt vor der Tür und führt in den Park.
+      this.make('a-plane', {
+        position: `0 -0.025 ${doorZ - pathLength / 2}`,
+        rotation: '-90 0 0',
+        width: 4.2,
+        height: pathLength,
+        material: {
+          color: '#c9bea8',
+          roughness: 1,
+          metalness: 0
+        }
+      });
+
+      // Helle Einfassungen des Weges
+      [-2.18, 2.18].forEach(x => {
+        this.make('a-box', {
+          position: `${x} -0.005 ${doorZ - pathLength / 2}`,
+          width: 0.14,
+          height: 0.08,
+          depth: pathLength,
+          material: {
+            color: '#ddd5c5',
+            roughness: 1
+          }
+        });
+      });
+
+      // Querweg im Park
+      this.make('a-plane', {
+        position: '0 -0.02 -34',
+        rotation: '-90 0 0',
+        width: 46,
+        height: 3,
+        material: {
+          color: '#c9bea8',
+          roughness: 1
+        }
+      });
+    },
+
+    buildTrees: function () {
+      // Bäume entlang des Eingangsweges und rund um die Halle.
+      // Alle Positionen befinden sich außerhalb der Halle.
+      const trees = [
+        [-7, -18, 1.0],
+        [7, -19, 1.1],
+        [-10, -26, 1.2],
+        [10, -27, 1.0],
+        [-8, -40, 1.1],
+        [8, -42, 1.2],
+        [-13, -51, 1.0],
+        [13, -54, 1.1],
+
+        [-23, -8, 1.1],
+        [-25, 3, 1.2],
+        [-23, 13, 1.0],
+
+        [23, -9, 1.0],
+        [25, 2, 1.2],
+        [23, 13, 1.1],
+
+        [-12, 23, 1.1],
+        [0, 27, 1.2],
+        [12, 23, 1.0]
+      ];
+
+      trees.forEach(([x, z, size], index) => {
+        const tree = this.make('a-entity', {
+          position: `${x} 0 ${z}`,
+          scale: `${size} ${size} ${size}`
+        });
+
+        // Stamm
+        this.make('a-cylinder', {
+          position: '0 1.7 0',
+          radius: 0.23,
+          height: 3.4,
+          'segments-radial': 8,
+          material: {
+            color: '#765035',
+            roughness: 1
+          }
+        }, tree);
+
+        // Baumkrone aus mehreren einfachen Formen
+        const leafColor = index % 2 === 0
+          ? '#3e7b43'
+          : '#568b45';
+
+        [
+          [0, 4.2, 0, 1.8],
+          [-1.0, 3.5, 0.25, 1.25],
+          [1.0, 3.6, -0.2, 1.3]
+        ].forEach(([cx, cy, cz, radius]) => {
+          this.make('a-sphere', {
+            position: `${cx} ${cy} ${cz}`,
+            radius: radius,
+            'segments-width': 10,
+            'segments-height': 7,
+            material: {
+              color: leafColor,
+              roughness: 1
+            }
+          }, tree);
+        });
+      });
+    },
+
+    buildClouds: function () {
+      // Wolken außerhalb und oberhalb der Halle.
+      // Sie sind durch die hohen Fenster sichtbar.
+      const clouds = [
+        [-35, 15, -20, 1.1],
+        [-40, 16, 5, 1.0],
+        [-34, 15, 25, 1.2],
+
+        [35, 15, -22, 1.1],
+        [40, 17, 3, 1.3],
+        [34, 15, 25, 1.0],
+
+        [-18, 16, 40, 1.2],
+        [8, 15, 42, 1.0],
+
+        [-19, 16, -42, 1.2],
+        [12, 15, -43, 1.1],
+        [0, 20, -62, 1.4]
+      ];
+
+      clouds.forEach(([x, y, z, size]) => {
+        const cloud = this.make('a-entity', {
+          position: `${x} ${y} ${z}`,
+          scale: `${size} ${size} ${size}`
+        });
+
+        // Überlappende weiße Ellipsoide ergeben eine Wolke.
+        [
+          [-2.2, 0, 0, 1.9],
+          [0, 0.45, 0, 2.3],
+          [2.3, 0.05, 0.1, 1.8],
+          [0.6, -0.25, 0.8, 1.7]
+        ].forEach(([cx, cy, cz, radius]) => {
+          this.make('a-sphere', {
+            position: `${cx} ${cy} ${cz}`,
+            radius: radius,
+            scale: '1.3 0.65 1',
+            'segments-width': 12,
+            'segments-height': 8,
+            material: {
+              shader: 'flat',
+              color: '#ffffff'
+            }
+          }, cloud);
+        });
+      });
+    }
+  });
+</script>
+
 </head>
 
 <body>
@@ -1464,7 +1638,11 @@
     </a-assets>
 
     <!-- Außenhimmel, sichtbar durch Fenster und Eingang -->
-    <a-sky color="#b8d7f0"></a-sky>
+   <!-- Blauer Himmel -->
+<a-sky color="#88c8f0"></a-sky>
+
+<!-- Park, Weg, Bäume und Wolken außerhalb der Halle -->
+<a-entity id="outsidePark" park-exterior></a-entity>
 
     <!-- ==================================================== -->
     <!-- SPIELER, KAMERA UND CONTROLLER                      -->
@@ -1480,7 +1658,7 @@
     -->
     <a-entity
       id="rig"
-      position="0 0 11"
+      position="0 0 7.5"
       movement-controls="speed: 0.22">
 
       <a-entity
@@ -1536,7 +1714,7 @@
     <!-- HINWEISTAFEL AM STARTPUNKT                           -->
     <!-- ==================================================== -->
 
-    <a-entity position="0 1.9 7">
+    <a-entity position="0 1.9 4">
       <a-plane
         width="5.4"
         height="1.3"
