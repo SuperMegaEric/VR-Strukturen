@@ -2,80 +2,71 @@
 <html lang="de">
 <head>
   <meta charset="utf-8">
-
-  <title>VR-Chemiehalle</title>
-
-  <meta
-    name="viewport"
-    content="width=device-width, initial-scale=1, maximum-scale=1"
-  >
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>VR-Chemiemuseum</title>
 
   <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 
   <style>
-    html,
-    body {
+    html, body {
       margin: 0;
       width: 100%;
       height: 100%;
       overflow: hidden;
-      background: #18222a;
       font-family: Arial, sans-serif;
+      background: #263c35;
     }
 
-    #desktop-panel {
+    #panel {
       position: fixed;
       top: 12px;
       left: 12px;
       z-index: 100;
-      width: min(420px, calc(100vw - 48px));
-      padding: 14px;
-      color: #fff;
-      background: rgba(15, 24, 32, 0.88);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      border-radius: 12px;
-      box-shadow: 0 5px 25px rgba(0, 0, 0, 0.25);
+      box-sizing: border-box;
+      width: min(430px, calc(100vw - 24px));
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #b99b55;
+      background: rgba(26, 43, 37, 0.93);
+      color: #f4eee0;
       line-height: 1.45;
     }
 
-    #desktop-panel h2 {
+    #panel h2 {
       margin: 0 0 8px;
-      font-size: 18px;
+      color: #e7ce8a;
+      font-size: 19px;
     }
 
-    #desktop-panel p {
-      margin: 6px 0;
+    #panel p {
+      margin: 7px 0;
       font-size: 13px;
     }
+
+    #panel.in-vr { display: none; }
 
     .buttons {
       display: flex;
       flex-wrap: wrap;
-      gap: 7px;
-      margin-top: 12px;
+      gap: 6px;
+      margin-top: 10px;
     }
 
     button {
-      border: 0;
-      border-radius: 7px;
-      padding: 9px 11px;
-      color: #10212b;
-      background: #e5edf4;
-      font-weight: 600;
       cursor: pointer;
+      border: 1px solid #aa8b44;
+      border-radius: 6px;
+      padding: 8px 10px;
+      color: #23392f;
+      background: #eee3c7;
+      font-weight: 600;
     }
 
-    button:hover {
-      background: #fff;
-    }
+    button:hover { background: #fff4d8; }
 
     #status {
-      color: #bde1f5;
+      color: #d7cdac;
       overflow-wrap: anywhere;
-    }
-
-    #desktop-panel.in-vr {
-      display: none;
     }
   </style>
 
@@ -86,354 +77,312 @@
      * ============================================================
      * KONFIGURATION
      * ============================================================
+     *
+     * Maße in Metern.
+     *
+     * walkSpeed: Laufgeschwindigkeit in VR.
+     * snapAngle: Drehwinkel pro Joystickbewegung.
+     *
+     * Folien: Bei slide einen Bildpfad eintragen.
+     * Beispiel: slide: "folien/Diamant_Folie.jpg"
      */
 
-    const HALL_CONFIG = {
+    const CONFIG = {
       width: 32,
       depth: 22.67,
-      height: 8,
+      height: 7,
       wallThickness: 0.3,
 
       posterWidth: 4.8,
       posterHeight: 2.7,
-      posterCenterY: 3,
+      posterY: 3.25,
 
-      modelCenterY: 1.35,
-      modelWallDistance: 2.7,
-      modelTargetSize: 0.5,
+      modelY: 1.35,
+      modelDistance: 2.7,
+      modelSize: 0.5,
       hitboxPadding: 0.06,
 
-      materials: {
-        floor: {
-          color: "#c8925c",
-          roughness: 0.85,
-          metalness: 0.02
-        },
+      pedestalWidth: 0.9,
+      pedestalDepth: 0.9,
+      pedestalHeight: 0.92,
 
-        wall: {
-          color: "#ddd7cc",
-          roughness: 1,
-          metalness: 0
-        },
+      walkSpeed: 3.0,
+      desktopSpeed: 4.0,
+      snapAngle: 45,
 
-        ceiling: {
-          color: "#f2f2ee",
-          roughness: 0.95,
-          metalness: 0
-        }
+      colors: {
+        wall: "#a7c1aa",
+        wallPanel: "#a0baa3",
+        cream: "#eee7d5",
+        creamDark: "#d5ceba",
+        gold: "#b38b39",
+        goldLight: "#e2c777",
+        goldDark: "#75531e",
+        wood: "#795238",
+        pedestalTop: "#33463e",
+        rail: "#343d38"
       }
     };
 
-    /*
-     * Folien:
-     * Bei slide beispielsweise "folien/Diamant_Folie.jpg" eintragen.
-     *
-     * Neue Modelle:
-     * 1. Unten in <a-assets> ein a-asset-item ergänzen.
-     * 2. Hier dessen ID verwenden, beispielsweise model: "#nacl".
-     *
-     * Keine individuelle Modellskalierung erforderlich:
-     * Die längste Modellkante wird automatisch auf 0.5 m gesetzt.
-     */
-
     const STATIONS = [
-      {
-        wall: "left",
-        along: -8.1,
-        title: "Diamant",
-        slide: "",
-        model: "#diamant"
-      },
-      {
-        wall: "left",
-        along: -2.7,
-        title: "Graphit",
-        slide: "",
-        model: "#graphit"
-      },
-      {
-        wall: "left",
-        along: 2.7,
-        title: "Station 03",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "left",
-        along: 8.1,
-        title: "Station 04",
-        slide: "",
-        model: ""
-      },
+      {wall: "left",  along: -8.1, title: "Diamant",    slide: "", model: "#diamant"},
+      {wall: "left",  along: -2.7, title: "Graphit",    slide: "", model: "#graphit"},
+      {wall: "left",  along:  2.7, title: "Station 03", slide: "", model: ""},
+      {wall: "left",  along:  8.1, title: "Station 04", slide: "", model: ""},
 
-      {
-        wall: "right",
-        along: -8.1,
-        title: "Eis",
-        slide: "",
-        model: "#eis"
-      },
-      {
-        wall: "right",
-        along: -2.7,
-        title: "MgCl2",
-        slide: "",
-        model: "#mgcl2"
-      },
-      {
-        wall: "right",
-        along: 2.7,
-        title: "Station 07",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "right",
-        along: 8.1,
-        title: "Station 08",
-        slide: "",
-        model: ""
-      },
+      {wall: "right", along: -8.1, title: "Eis",        slide: "", model: "#eis"},
+      {wall: "right", along: -2.7, title: "MgCl2",      slide: "", model: "#mgcl2"},
+      {wall: "right", along:  2.7, title: "Station 07", slide: "", model: ""},
+      {wall: "right", along:  8.1, title: "Station 08", slide: "", model: ""},
 
-      {
-        wall: "back",
-        along: -11,
-        title: "Imidazol",
-        slide: "",
-        model: "#imidazol"
-      },
-      {
-        wall: "back",
-        along: -3.7,
-        title: "Station 10",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "back",
-        along: 3.7,
-        title: "Station 11",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "back",
-        along: 11,
-        title: "BODIPY",
-        slide: "",
-        model: "#bodipy"
-      },
+      {wall: "back",  along: -11,  title: "Imidazol",   slide: "", model: "#imidazol"},
+      {wall: "back",  along: -3.7, title: "Station 10", slide: "", model: ""},
+      {wall: "back",  along:  3.7, title: "Station 11", slide: "", model: ""},
+      {wall: "back",  along:  11,  title: "BODIPY",     slide: "", model: "#bodipy"},
 
-      {
-        wall: "front",
-        along: -11,
-        title: "Station 13",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "front",
-        along: -5.4,
-        title: "Station 14",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "front",
-        along: 5.4,
-        title: "Station 15",
-        slide: "",
-        model: ""
-      },
-      {
-        wall: "front",
-        along: 11,
-        title: "Station 16",
-        slide: "",
-        model: ""
-      }
+      {wall: "front", along: -11,  title: "Station 13", slide: "", model: ""},
+      {wall: "front", along: -5.4, title: "Station 14", slide: "", model: ""},
+      {wall: "front", along:  5.4, title: "Station 15", slide: "", model: ""},
+      {wall: "front", along:  11,  title: "Station 16", slide: "", model: ""}
     ];
 
-    /*
-     * ============================================================
-     * ALLGEMEINE HILFSFUNKTIONEN
-     * ============================================================
-     */
+    const PEDESTALS = [];
 
-    function getScene() {
+    function scene() {
       return document.querySelector("a-scene");
     }
 
-    function setStatus(message) {
+    function status(message) {
       const el = document.getElementById("status");
-
-      if (el) {
-        el.textContent = message;
-      }
+      if (el) el.textContent = message;
     }
 
-    function createEntity(tag, attributes, parent) {
+    function entity(tag, attrs, parent) {
       const el = document.createElement(tag || "a-entity");
-
-      Object.entries(attributes || {}).forEach(([name, value]) => {
-        el.setAttribute(name, value);
+      Object.entries(attrs || {}).forEach(([key, value]) => {
+        el.setAttribute(key, value);
       });
-
-      if (parent) {
-        parent.appendChild(el);
-      }
-
+      if (parent) parent.appendChild(el);
       return el;
     }
 
-    function selectModel(modelEl) {
-      const scene = getScene();
-
-      if (scene && modelEl) {
-        scene.lastSelectedModel = modelEl;
-      }
+    function box(parent, x, y, z, w, h, d, color, extra) {
+      return entity("a-box", {
+        position: {x, y, z},
+        width: w,
+        height: h,
+        depth: d,
+        material: Object.assign({
+          color,
+          roughness: 0.8,
+          metalness: 0
+        }, extra || {})
+      }, parent);
     }
 
-    function anyHandGrabbing(scene) {
-      if (!scene) return false;
+    function goldBox(parent, x, y, z, w, h, d, color) {
+      return box(parent, x, y, z, w, h, d,
+        color || CONFIG.colors.gold, {
+          metalness: 0.55,
+          roughness: 0.36
+        });
+    }
 
-      return Array.from(
-        scene.querySelectorAll("[hand-grabber]")
-      ).some(el => {
-        const grabber = el.components["hand-grabber"];
-        return grabber && !!grabber.grabbed;
+    function selectModel(root) {
+      if (root) root.sceneEl.lastSelectedModel = root;
+    }
+
+    function releaseHands(s) {
+      if (!s) return;
+      s.querySelectorAll("[hand-grabber]").forEach(hand => {
+        const grabber = hand.components["hand-grabber"];
+        if (grabber) grabber.end();
       });
     }
 
-    function releaseAllHands(scene) {
-      if (!scene) return;
-
-      scene.querySelectorAll("[hand-grabber]").forEach(el => {
-        const component = el.components["hand-grabber"];
-
-        if (component) {
-          component.onGrabEnd();
-        }
-      });
+    function grabbing(s) {
+      return Array.from(s.querySelectorAll("[hand-grabber]"))
+        .some(hand => {
+          const g = hand.components["hand-grabber"];
+          return g && !!g.grabbed;
+        });
     }
 
-    function resetOneModel(modelEl) {
-      if (!modelEl) return;
+    function resetModel(root) {
+      if (!root) return;
 
-      const scene = modelEl.sceneEl;
-      const manip = modelEl.components.manipulable;
+      const manip = root.components.manipulable;
+      if (manip && manip.hands.length) releaseHands(root.sceneEl);
 
-      if (manip && manip.activeHands.length) {
-        releaseAllHands(scene);
+      if (root.homePosition) {
+        root.object3D.position.copy(root.homePosition);
       }
 
-      if (modelEl.homePosition) {
-        modelEl.object3D.position.copy(modelEl.homePosition);
-      }
-
-      const body = modelEl.querySelector(".manip-body");
-
+      const body = root.querySelector(".manip-body");
       if (body) {
         body.object3D.position.set(0, 0, 0);
         body.object3D.quaternion.identity();
-        body.object3D.scale.set(1, 1, 1);
-        body.object3D.updateMatrixWorld(true);
+        body.object3D.scale.setScalar(1);
       }
 
-      modelEl.querySelectorAll(".atom-marker").forEach(el => {
-        el.remove();
-      });
-
-      modelEl.object3D.updateMatrixWorld(true);
+      root.querySelectorAll(".atom-marker").forEach(el => el.remove());
+      root.object3D.updateWorldMatrix(true, true);
     }
 
-    function resetLastModel() {
-      const scene = getScene();
+    function resetLast() {
+      const s = scene();
+      if (s) resetModel(s.lastSelectedModel);
+    }
 
-      if (scene && scene.lastSelectedModel) {
-        resetOneModel(scene.lastSelectedModel);
+    function resetAll() {
+      const s = scene();
+      if (!s) return;
+      releaseHands(s);
+      s.querySelectorAll(".interactable").forEach(resetModel);
+    }
+
+    function clearMarkers() {
+      const s = scene();
+      if (s) {
+        s.querySelectorAll(".atom-marker").forEach(el => el.remove());
       }
     }
 
-    function resetAllModels() {
-      const scene = getScene();
-      if (!scene) return;
-
-      releaseAllHands(scene);
-
-      scene.querySelectorAll(".interactable").forEach(resetOneModel);
-    }
-
-    function clearAllMarkers() {
-      const scene = getScene();
-      if (!scene) return;
-
-      scene.querySelectorAll(".atom-marker").forEach(el => el.remove());
-    }
-
-    function getXRSource(scene, handedness) {
-      const xr = scene.renderer && scene.renderer.xr;
+    function xrSource(s, hand) {
+      const xr = s.renderer && s.renderer.xr;
       const session = xr && xr.getSession();
-
       if (!session) return null;
 
       for (const source of session.inputSources) {
         if (
-          source.handedness === handedness &&
+          source.handedness === hand &&
           source.targetRayMode === "tracked-pointer"
         ) {
           return source;
         }
       }
-
       return null;
     }
 
-    function readXRStick(source) {
-      const result = {x: 0, y: 0};
+    function stick(source) {
+      const gp = source && source.gamepad;
+      if (!gp || gp.axes.length < 2) return {x: 0, y: 0};
 
-      if (!source || !source.gamepad) {
-        return result;
-      }
+      const i = gp.mapping === "xr-standard" && gp.axes.length >= 4
+        ? 2 : gp.axes.length - 2;
 
-      const gamepad = source.gamepad;
-      const axes = gamepad.axes;
-
-      if (!axes || axes.length < 2) {
-        return result;
-      }
-
-      if (gamepad.mapping === "xr-standard" && axes.length >= 4) {
-        result.x = Number(axes[2]) || 0;
-        result.y = Number(axes[3]) || 0;
-      } else {
-        result.x = Number(axes[axes.length - 2]) || 0;
-        result.y = Number(axes[axes.length - 1]) || 0;
-      }
-
-      return result;
+      return {
+        x: Number(gp.axes[i]) || 0,
+        y: Number(gp.axes[i + 1]) || 0
+      };
     }
 
-    function buttonPressed(gamepad, index) {
-      if (!gamepad || !gamepad.buttons || !gamepad.buttons[index]) {
-        return false;
-      }
+    function pressed(gp, index) {
+      const b = gp && gp.buttons[index];
+      return !!b && (b.pressed || b.value > 0.65);
+    }
 
-      const button = gamepad.buttons[index];
+    /*
+     * Einfache Begrenzung für Navigation:
+     * - innerhalb des Museums bleiben
+     * - nicht in ein Podest laufen/teleportieren
+     *
+     * Keine vollständige Physik oder Modellkollision.
+     */
+    function validFloor(x, z) {
+      const margin = 0.45;
 
-      return !!button.pressed || button.value > 0.65;
+      if (
+        Math.abs(x) > CONFIG.width / 2 - margin ||
+        Math.abs(z) > CONFIG.depth / 2 - margin
+      ) return false;
+
+      return !PEDESTALS.some(p => {
+        return (
+          Math.abs(x - p.x) < CONFIG.pedestalWidth / 2 + 0.28 &&
+          Math.abs(z - p.z) < CONFIG.pedestalDepth / 2 + 0.28
+        );
+      });
     }
 
     /*
      * ============================================================
-     * WEBXR-ZIELSTRAHL
+     * PROZEDURALE PARKETTTEXTUR
+     * ============================================================
      *
-     * Bevorzugt echte targetRaySpace-Pose.
-     * Als versionsunabhängigere Alternative wird die von Three.js
-     * aktualisierte Zielstrahlgruppe verwendet.
-     *
-     * Die Three.js-Controllergruppen werden NICHT umgehängt.
-     * Ihre Referenzraum-Pose wird in den Welt-/Rigraum umgerechnet.
+     * Geflochtenes Parkettmuster mit wechselnder Maserungsrichtung.
+     * Wird direkt im Browser erzeugt; keine zusätzliche Bilddatei.
+     */
+
+    function makeParquet() {
+      const canvas = document.getElementById("parquet");
+      const ctx = canvas.getContext("2d");
+
+      let seed = 1234567;
+      function random() {
+        seed = (seed * 1664525 + 1013904223) >>> 0;
+        return seed / 4294967296;
+      }
+
+      const cell = 128;
+      const plank = cell / 4;
+
+      ctx.fillStyle = "#725037";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const vertical = (row + col) % 2 === 0;
+
+          for (let p = 0; p < 4; p++) {
+            ctx.save();
+            ctx.translate(col * cell, row * cell);
+
+            if (vertical) {
+              ctx.translate(cell, 0);
+              ctx.rotate(Math.PI / 2);
+            }
+
+            const y = p * plank;
+            const variation = Math.floor(random() * 26);
+
+            const gradient = ctx.createLinearGradient(0, y, 0, y + plank);
+            gradient.addColorStop(0, `rgb(${169 + variation},${115 + variation},${65 + variation})`);
+            gradient.addColorStop(0.5, `rgb(${189 + variation},${134 + variation},${79 + variation})`);
+            gradient.addColorStop(1, `rgb(${153 + variation},${101 + variation},${55 + variation})`);
+
+            ctx.fillStyle = gradient;
+            ctx.fillRect(1, y + 1, cell - 2, plank - 2);
+
+            // Fein gezeichnete Holzmaserung.
+            for (let g = 0; g < 16; g++) {
+              const gy = y + 3 + random() * (plank - 6);
+              ctx.strokeStyle = random() > 0.5
+                ? "rgba(65,35,12,0.13)"
+                : "rgba(255,222,165,0.16)";
+              ctx.lineWidth = 0.5 + random();
+              ctx.beginPath();
+              ctx.moveTo(2, gy);
+              ctx.bezierCurveTo(
+                35, gy + random() * 3 - 1.5,
+                85, gy + random() * 3 - 1.5,
+                cell - 2, gy
+              );
+              ctx.stroke();
+            }
+
+            ctx.strokeStyle = "rgba(255,224,170,0.25)";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(1.5, y + 1.5, cell - 3, plank - 3);
+            ctx.restore();
+          }
+        }
+      }
+    }
+
+    /*
+     * ============================================================
+     * WEBXR-ZIELSTRAHLPOSE
      * ============================================================
      */
 
@@ -441,100 +390,61 @@
       init: function () {
         this.entries = [];
         this.manager = null;
-
-        this.onRenderStart = this.setup.bind(this);
-        this.el.addEventListener("renderstart", this.onRenderStart);
-
+        this.setup = this.setup.bind(this);
+        this.el.addEventListener("renderstart", this.setup);
         this.setup();
       },
 
       setup: function () {
         const renderer = this.el.renderer;
-
         if (!renderer || !renderer.xr) return;
         if (this.manager === renderer.xr) return;
 
-        this.disposeEntries();
+        this.dispose();
         this.manager = renderer.xr;
 
-        // Zwei Controller sind üblich; zusätzliche Plätze schaden nicht.
         for (let i = 0; i < 4; i++) {
           const group = this.manager.getController(i);
+          const entry = {group, source: null};
 
-          const entry = {
-            group: group,
-            source: null
-          };
+          entry.connected = e => { entry.source = e.data; };
+          entry.disconnected = () => { entry.source = null; };
 
-          entry.onConnected = event => {
-            entry.source = event.data;
-          };
-
-          entry.onDisconnected = () => {
-            entry.source = null;
-          };
-
-          group.addEventListener("connected", entry.onConnected);
-          group.addEventListener("disconnected", entry.onDisconnected);
-
+          group.addEventListener("connected", entry.connected);
+          group.addEventListener("disconnected", entry.disconnected);
           this.entries.push(entry);
         }
       },
 
-      tick: function () {
-        this.setup();
-      },
-
-      getReferencePose: function (source, position, quaternion) {
+      getPose: function (source, position, quaternion) {
         if (!source || !this.manager) return false;
 
-        let frame = null;
+        let frame = this.el.frame;
 
-        /*
-         * A-Frame stellt je nach Version das aktuelle XRFrame an der
-         * Szene bereit. Neuere Three.js-Versionen bieten getFrame().
-         */
-        if (
-          this.el.frame &&
-          typeof this.el.frame.getPose === "function"
-        ) {
-          frame = this.el.frame;
+        if (!frame || typeof frame.getPose !== "function") {
+          frame = typeof this.manager.getFrame === "function"
+            ? this.manager.getFrame() : null;
         }
 
-        if (
-          !frame &&
-          typeof this.manager.getFrame === "function"
-        ) {
-          frame = this.manager.getFrame();
-        }
+        const space = typeof this.manager.getReferenceSpace === "function"
+          ? this.manager.getReferenceSpace() : null;
 
-        const referenceSpace =
-          typeof this.manager.getReferenceSpace === "function"
-            ? this.manager.getReferenceSpace()
-            : null;
-
-        if (frame && referenceSpace) {
+        if (frame && space) {
           try {
-            const pose = frame.getPose(
-              source.targetRaySpace,
-              referenceSpace
-            );
-
+            const pose = frame.getPose(source.targetRaySpace, space);
             if (pose) {
               const p = pose.transform.position;
               const q = pose.transform.orientation;
-
               position.set(p.x, p.y, p.z);
               quaternion.set(q.x, q.y, q.z, q.w);
-
               return true;
             }
-          } catch (error) {
-            // Fallback auf die vom XRManager aktualisierte Gruppe.
+          } catch (e) {
+            // Fallback auf die Three.js-Zielstrahlgruppe.
           }
         }
 
-        const entry = this.entries.find(item => item.source === source);
+        const entry = this.entries.find(e => e.source === source);
 
         if (entry && entry.group.visible) {
           position.copy(entry.group.position);
@@ -545,500 +455,288 @@
         return false;
       },
 
-      disposeEntries: function () {
-        this.entries.forEach(entry => {
-          entry.group.removeEventListener(
-            "connected",
-            entry.onConnected
-          );
+      tick: function () {
+        this.setup();
+      },
 
-          entry.group.removeEventListener(
-            "disconnected",
-            entry.onDisconnected
-          );
+      dispose: function () {
+        this.entries.forEach(e => {
+          e.group.removeEventListener("connected", e.connected);
+          e.group.removeEventListener("disconnected", e.disconnected);
         });
-
         this.entries = [];
       },
 
       remove: function () {
-        this.el.removeEventListener(
-          "renderstart",
-          this.onRenderStart
-        );
-
-        this.disposeEntries();
+        this.el.removeEventListener("renderstart", this.setup);
+        this.dispose();
       }
     });
 
     /*
      * ============================================================
-     * BESCHRIFTUNG ZUR KAMERA AUSRICHTEN
-     * ============================================================
-     */
-
-    AFRAME.registerComponent("billboard", {
-      init: function () {
-        this.cameraPosition = new THREE.Vector3();
-        this.ownPosition = new THREE.Vector3();
-        this.parentQuaternion = new THREE.Quaternion();
-        this.worldQuaternion = new THREE.Quaternion();
-        this.up = new THREE.Vector3(0, 1, 0);
-        this.matrix = new THREE.Matrix4();
-      },
-
-      tick: function () {
-        const camera = this.el.sceneEl.camera;
-        if (!camera) return;
-
-        camera.getWorldPosition(this.cameraPosition);
-        this.el.object3D.getWorldPosition(this.ownPosition);
-
-        this.cameraPosition.y = this.ownPosition.y;
-
-        if (
-          this.cameraPosition.distanceToSquared(this.ownPosition) < 0.0001
-        ) {
-          return;
-        }
-
-        // +Z der Textfläche soll zur Kamera zeigen.
-        this.matrix.lookAt(
-          this.cameraPosition,
-          this.ownPosition,
-          this.up
-        );
-
-        this.worldQuaternion.setFromRotationMatrix(this.matrix);
-
-        const parent = this.el.object3D.parent;
-
-        if (parent) {
-          parent.getWorldQuaternion(this.parentQuaternion);
-
-          this.el.object3D.quaternion.copy(
-            this.parentQuaternion.invert()
-          ).multiply(this.worldQuaternion);
-        } else {
-          this.el.object3D.quaternion.copy(this.worldQuaternion);
-        }
-      }
-    });
-
-    /*
-     * ============================================================
-     * MODELLE ZENTRIEREN, NORMALISIEREN UND HITBOX ANPASSEN
+     * MODELLNORMALISIERUNG
      * ============================================================
      */
 
     AFRAME.registerComponent("normalize-model", {
-      schema: {
-        targetSize: {default: 0.5},
-        padding: {default: 0.06}
-      },
-
       init: function () {
-        this.onLoaded = this.normalize.bind(this);
-        this.onError = this.showFallback.bind(this);
-
-        this.el.addEventListener("model-loaded", this.onLoaded);
-        this.el.addEventListener("model-error", this.onError);
+        this.loaded = this.normalize.bind(this);
+        this.failed = this.fallback.bind(this);
+        this.el.addEventListener("model-loaded", this.loaded);
+        this.el.addEventListener("model-error", this.failed);
       },
 
       normalize: function () {
         const visual = this.el.object3D;
         const mesh = this.el.getObject3D("mesh");
-
         if (!mesh) return;
 
         const body = this.el.parentElement;
         const root = body.parentElement;
-        const hitbox = body.querySelector(".hitbox");
 
-        /*
-         * Boundingbox im lokalen Raum der Visual-Entity bestimmen.
-         * Dadurch beeinflussen Hallenposition und Elternrotation
-         * die automatische Anfangsgröße nicht.
-         */
         visual.position.set(0, 0, 0);
-        visual.scale.set(1, 1, 1);
+        visual.scale.setScalar(1);
         visual.updateWorldMatrix(true, true);
 
-        const inverseVisual = new THREE.Matrix4()
-          .copy(visual.matrixWorld)
-          .invert();
+        const inverse = new THREE.Matrix4()
+          .copy(visual.matrixWorld).invert();
 
-        const box = new THREE.Box3();
-        const relativeMatrix = new THREE.Matrix4();
-
-        box.makeEmpty();
+        const bounds = new THREE.Box3().makeEmpty();
+        const matrix = new THREE.Matrix4();
 
         mesh.traverse(object => {
           if (!object.isMesh || !object.geometry) return;
-
           const geometry = object.geometry;
-
-          if (!geometry.boundingBox) {
-            geometry.computeBoundingBox();
-          }
-
+          if (!geometry.boundingBox) geometry.computeBoundingBox();
           if (!geometry.boundingBox) return;
 
-          relativeMatrix.multiplyMatrices(
-            inverseVisual,
-            object.matrixWorld
+          matrix.multiplyMatrices(inverse, object.matrixWorld);
+          bounds.union(
+            geometry.boundingBox.clone().applyMatrix4(matrix)
           );
-
-          const childBox = geometry.boundingBox.clone()
-            .applyMatrix4(relativeMatrix);
-
-          box.union(childBox);
         });
 
-        if (box.isEmpty()) {
-          this.showFallback();
+        if (bounds.isEmpty()) {
+          this.fallback();
           return;
         }
 
-        const size = box.getSize(new THREE.Vector3());
-        const center = box.getCenter(new THREE.Vector3());
-
+        const size = bounds.getSize(new THREE.Vector3());
+        const center = bounds.getCenter(new THREE.Vector3());
         const longest = Math.max(size.x, size.y, size.z);
 
         if (!Number.isFinite(longest) || longest <= 0) {
-          this.showFallback();
+          this.fallback();
           return;
         }
 
-        const factor = this.data.targetSize / longest;
+        const factor = CONFIG.modelSize / longest;
 
         visual.scale.setScalar(factor);
         visual.position.copy(center).multiplyScalar(-factor);
 
-        if (hitbox) {
-          hitbox.setAttribute("geometry", {
-            primitive: "box",
-            width: Math.max(0.08, size.x * factor + this.data.padding),
-            height: Math.max(0.08, size.y * factor + this.data.padding),
-            depth: Math.max(0.08, size.z * factor + this.data.padding)
-          });
-        }
+        const hitbox = body.querySelector(".hitbox");
 
-        visual.updateWorldMatrix(true, true);
+        hitbox.setAttribute("geometry", {
+          primitive: "box",
+          width: Math.max(0.08, size.x * factor + CONFIG.hitboxPadding),
+          height: Math.max(0.08, size.y * factor + CONFIG.hitboxPadding),
+          depth: Math.max(0.08, size.z * factor + CONFIG.hitboxPadding)
+        });
 
         root.modelReady = true;
+        root.object3D.updateWorldMatrix(true, true);
       },
 
-      showFallback: function () {
-        if (this.fallbackShown) return;
-        this.fallbackShown = true;
+      fallback: function () {
+        if (this.hasFallback) return;
+        this.hasFallback = true;
 
         const body = this.el.parentElement;
-        const root = body && body.parentElement;
-
-        if (!body || !root) return;
-
+        const root = body.parentElement;
         this.el.object3D.visible = false;
 
-        createEntity("a-sphere", {
+        entity("a-sphere", {
           class: "model-visual",
-          radius: HALL_CONFIG.modelTargetSize / 2,
+          radius: CONFIG.modelSize / 2,
           material: {
-            color: "#ffad55",
+            color: "#d6b76b",
             wireframe: true,
             shader: "flat"
           }
         }, body);
 
         root.modelReady = true;
+        window.modelLoadFailed = true;
 
-        const title = root.dataset.title || "Modell";
-
-        console.warn(
-          "GLB konnte nicht geladen oder normalisiert werden:",
-          title,
-          this.el.getAttribute("gltf-model")
-        );
-
-        setStatus(
-          "Mindestens ein Modell fehlt oder konnte nicht geladen werden. " +
-          "Dateinamen prüfen; betroffene Station zeigt einen Platzhalter."
-        );
+        status("Ein Modell konnte nicht geladen werden. GLB-Dateinamen prüfen.");
+        console.warn("Modellfehler:", root.dataset.title);
       },
 
       remove: function () {
-        this.el.removeEventListener("model-loaded", this.onLoaded);
-        this.el.removeEventListener("model-error", this.onError);
+        this.el.removeEventListener("model-loaded", this.loaded);
+        this.el.removeEventListener("model-error", this.failed);
       }
     });
 
     /*
      * ============================================================
-     * EINHAND-MANIPULATION UND ZWEIHAND-SKALIERUNG
-     *
-     * Die Beschriftung liegt außerhalb von .manip-body.
-     * Nur der Body wird gedreht und skaliert.
+     * GREIFEN, DREHEN, SKALIEREN
      * ============================================================
      */
 
     AFRAME.registerComponent("manipulable", {
-      schema: {
-        minScale: {default: 0.02},
-        maxScale: {default: 0}
-      },
-
       init: function () {
-        this.bodyEl = this.el.querySelector(".manip-body");
-        this.body = this.bodyEl.object3D;
-        this.activeHands = [];
+        this.body = this.el.querySelector(".manip-body").object3D;
+        this.hands = [];
 
-        this.handPosition = new THREE.Vector3();
-        this.handQuaternion = new THREE.Quaternion();
+        this.hp = new THREE.Vector3();
+        this.hq = new THREE.Quaternion();
+        this.relativeQ = new THREE.Quaternion();
+        this.localGrab = new THREE.Vector3();
 
-        this.relativeQuaternion = new THREE.Quaternion();
-        this.grabLocal = new THREE.Vector3();
+        this.parentQ = new THREE.Quaternion();
+        this.desiredQ = new THREE.Quaternion();
 
-        this.parentQuaternion = new THREE.Quaternion();
-        this.desiredQuaternion = new THREE.Quaternion();
+        this.point = new THREE.Vector3();
+        this.rootPosition = new THREE.Vector3();
+        this.desiredPosition = new THREE.Vector3();
 
-        this.pointWorld = new THREE.Vector3();
-        this.rootWorld = new THREE.Vector3();
-
-        this.leftPosition = new THREE.Vector3();
-        this.rightPosition = new THREE.Vector3();
-
-        this.twoStartMid = new THREE.Vector3();
-        this.twoStartOffset = new THREE.Vector3();
-
-        this.currentMid = new THREE.Vector3();
-        this.desiredRoot = new THREE.Vector3();
-
-        this.twoStartDistance = 1;
-        this.twoStartScale = 1;
+        this.p1 = new THREE.Vector3();
+        this.p2 = new THREE.Vector3();
+        this.mid = new THREE.Vector3();
+        this.offset = new THREE.Vector3();
       },
 
-      startGrab: function (handEl) {
+      start: function (hand) {
         if (!this.el.modelReady) return false;
+        if (this.hands.includes(hand)) return true;
+        if (this.hands.length >= 2) return false;
 
-        if (this.activeHands.includes(handEl)) return true;
-        if (this.activeHands.length >= 2) return false;
-
-        this.activeHands.push(handEl);
+        this.hands.push(hand);
         selectModel(this.el);
 
-        if (this.activeHands.length === 1) {
-          this.setupSingleHand();
-        } else {
-          this.setupTwoHands();
-        }
+        if (this.hands.length === 1) this.setupSingle();
+        else this.setupDouble();
 
         return true;
       },
 
-      endGrab: function (handEl) {
-        const index = this.activeHands.indexOf(handEl);
-
+      end: function (hand) {
+        const index = this.hands.indexOf(hand);
         if (index < 0) return;
 
-        this.activeHands.splice(index, 1);
-
-        if (this.activeHands.length === 1) {
-          this.setupSingleHand();
-        }
+        this.hands.splice(index, 1);
+        if (this.hands.length === 1) this.setupSingle();
       },
 
-      setupSingleHand: function () {
-        const hand = this.activeHands[0];
-        if (!hand) return;
-
-        hand.object3D.updateWorldMatrix(true, false);
+      setupSingle: function () {
+        const hand = this.hands[0].object3D;
+        hand.updateWorldMatrix(true, false);
         this.body.updateWorldMatrix(true, true);
 
-        hand.object3D.getWorldPosition(this.handPosition);
-        hand.object3D.getWorldQuaternion(this.handQuaternion);
+        hand.getWorldPosition(this.hp);
+        hand.getWorldQuaternion(this.hq);
+        this.body.getWorldQuaternion(this.desiredQ);
 
-        this.body.getWorldQuaternion(this.desiredQuaternion);
-
-        this.relativeQuaternion
-          .copy(this.handQuaternion)
-          .invert()
-          .multiply(this.desiredQuaternion);
-
-        this.grabLocal.copy(this.handPosition);
-        this.body.worldToLocal(this.grabLocal);
+        this.relativeQ.copy(this.hq).invert().multiply(this.desiredQ);
+        this.localGrab.copy(this.hp);
+        this.body.worldToLocal(this.localGrab);
       },
 
-      setupTwoHands: function () {
-        this.activeHands[0].object3D.getWorldPosition(
-          this.leftPosition
-        );
+      setupDouble: function () {
+        this.hands[0].object3D.getWorldPosition(this.p1);
+        this.hands[1].object3D.getWorldPosition(this.p2);
 
-        this.activeHands[1].object3D.getWorldPosition(
-          this.rightPosition
-        );
+        this.mid.copy(this.p1).add(this.p2).multiplyScalar(0.5);
+        this.startDistance = Math.max(0.02, this.p1.distanceTo(this.p2));
+        this.startScale = this.body.scale.x;
 
-        this.twoStartMid
-          .copy(this.leftPosition)
-          .add(this.rightPosition)
-          .multiplyScalar(0.5);
-
-        this.twoStartDistance = Math.max(
-          0.02,
-          this.leftPosition.distanceTo(this.rightPosition)
-        );
-
-        this.twoStartScale = this.body.scale.x;
-
-        this.el.object3D.getWorldPosition(this.rootWorld);
-
-        this.twoStartOffset
-          .copy(this.rootWorld)
-          .sub(this.twoStartMid);
+        this.el.object3D.getWorldPosition(this.rootPosition);
+        this.offset.copy(this.rootPosition).sub(this.mid);
       },
 
-      setBodyWorldQuaternion: function (worldQuaternion) {
-        const parent = this.body.parent;
-
-        if (parent) {
-          parent.getWorldQuaternion(this.parentQuaternion);
-
-          this.body.quaternion
-            .copy(this.parentQuaternion)
-            .invert()
-            .multiply(worldQuaternion);
-        } else {
-          this.body.quaternion.copy(worldQuaternion);
-        }
-
-        this.body.updateWorldMatrix(true, true);
-      },
-
-      setWorldPosition: function (position) {
-        const parent = this.el.object3D.parent;
+      setPosition: function (worldPosition) {
+        const root = this.el.object3D;
+        const parent = root.parent;
+        root.position.copy(worldPosition);
 
         if (parent) {
           parent.updateWorldMatrix(true, false);
-
-          this.el.object3D.position.copy(position);
-          parent.worldToLocal(this.el.object3D.position);
-        } else {
-          this.el.object3D.position.copy(position);
+          parent.worldToLocal(root.position);
         }
 
-        this.el.object3D.updateWorldMatrix(true, true);
-      },
-
-      updateSingleHand: function () {
-        const hand = this.activeHands[0];
-
-        hand.object3D.getWorldPosition(this.handPosition);
-        hand.object3D.getWorldQuaternion(this.handQuaternion);
-
-        this.desiredQuaternion
-          .copy(this.handQuaternion)
-          .multiply(this.relativeQuaternion);
-
-        this.setBodyWorldQuaternion(this.desiredQuaternion);
-
-        this.pointWorld.copy(this.grabLocal);
-        this.body.localToWorld(this.pointWorld);
-
-        this.el.object3D.getWorldPosition(this.rootWorld);
-
-        this.desiredRoot
-          .copy(this.rootWorld)
-          .add(this.handPosition)
-          .sub(this.pointWorld);
-
-        this.setWorldPosition(this.desiredRoot);
-      },
-
-      updateTwoHands: function () {
-        this.activeHands[0].object3D.getWorldPosition(
-          this.leftPosition
-        );
-
-        this.activeHands[1].object3D.getWorldPosition(
-          this.rightPosition
-        );
-
-        this.currentMid
-          .copy(this.leftPosition)
-          .add(this.rightPosition)
-          .multiplyScalar(0.5);
-
-        const distance = this.leftPosition.distanceTo(
-          this.rightPosition
-        );
-
-        let scale =
-          this.twoStartScale * distance / this.twoStartDistance;
-
-        scale = Math.max(this.data.minScale, scale);
-
-        if (this.data.maxScale > 0) {
-          scale = Math.min(this.data.maxScale, scale);
-        }
-
-        const effectiveRatio = scale / this.twoStartScale;
-
-        this.body.scale.setScalar(scale);
-
-        this.desiredRoot
-          .copy(this.twoStartOffset)
-          .multiplyScalar(effectiveRatio)
-          .add(this.currentMid);
-
-        this.setWorldPosition(this.desiredRoot);
+        root.updateWorldMatrix(true, true);
       },
 
       tick: function () {
-        if (this.activeHands.length === 1) {
-          this.updateSingleHand();
-        } else if (this.activeHands.length === 2) {
-          this.updateTwoHands();
+        if (this.hands.length === 1) {
+          const hand = this.hands[0].object3D;
+          hand.getWorldPosition(this.hp);
+          hand.getWorldQuaternion(this.hq);
+
+          this.desiredQ.copy(this.hq).multiply(this.relativeQ);
+          this.body.parent.getWorldQuaternion(this.parentQ);
+
+          this.body.quaternion.copy(this.parentQ)
+            .invert().multiply(this.desiredQ);
+
+          this.body.updateWorldMatrix(true, true);
+
+          this.point.copy(this.localGrab);
+          this.body.localToWorld(this.point);
+
+          this.el.object3D.getWorldPosition(this.rootPosition);
+
+          this.desiredPosition.copy(this.rootPosition)
+            .add(this.hp).sub(this.point);
+
+          this.setPosition(this.desiredPosition);
+        }
+
+        if (this.hands.length === 2) {
+          this.hands[0].object3D.getWorldPosition(this.p1);
+          this.hands[1].object3D.getWorldPosition(this.p2);
+
+          this.mid.copy(this.p1).add(this.p2).multiplyScalar(0.5);
+
+          const scale = Math.max(
+            0.02,
+            this.startScale * this.p1.distanceTo(this.p2) / this.startDistance
+          );
+
+          this.body.scale.setScalar(scale);
+
+          this.desiredPosition.copy(this.offset)
+            .multiplyScalar(scale / this.startScale)
+            .add(this.mid);
+
+          this.setPosition(this.desiredPosition);
         }
       }
     });
 
-    /*
-     * ============================================================
-     * GREIFEN MIT GRIP-TASTE
-     *
-     * A-Frame-Ereignisse und direkte WebXR-Buttonabfrage werden
-     * gemeinsam unterstützt. Wiederholte Starts sind unschädlich.
-     * ============================================================
-     */
-
     AFRAME.registerComponent("hand-grabber", {
-      schema: {
-        handRadius: {default: 0.12}
-      },
-
       init: function () {
         this.grabbed = null;
         this.position = new THREE.Vector3();
-        this.closestPoint = new THREE.Vector3();
-        this.box = new THREE.Box3();
+        this.closest = new THREE.Vector3();
+        this.bounds = new THREE.Box3();
 
-        this.onGrabStart = this.onGrabStart.bind(this);
-        this.onGrabEnd = this.onGrabEnd.bind(this);
+        this.start = this.start.bind(this);
+        this.end = this.end.bind(this);
 
-        this.el.addEventListener("gripdown", this.onGrabStart);
-        this.el.addEventListener("gripup", this.onGrabEnd);
-
-        this.el.addEventListener(
-          "controllerdisconnected",
-          this.onGrabEnd
-        );
+        this.el.addEventListener("gripdown", this.start);
+        this.el.addEventListener("gripup", this.end);
+        this.el.addEventListener("controllerdisconnected", this.end);
       },
 
-      onGrabStart: function () {
+      start: function () {
         if (this.grabbed) return;
 
-        const tools = this.el.components["controller-tools"];
-
-        if (tools && tools.teleporting) return;
+        const nav = document.getElementById("rig").components.navigation;
+        if (nav && nav.teleporting) return;
 
         this.el.object3D.getWorldPosition(this.position);
 
@@ -1046,418 +744,273 @@
         let bestDistance = Infinity;
 
         this.el.sceneEl.querySelectorAll(".interactable").forEach(root => {
-          if (!root.modelReady) return;
-
           const manip = root.components.manipulable;
-
-          if (!manip || manip.activeHands.length >= 2) return;
+          if (!root.modelReady || !manip || manip.hands.length >= 2) return;
 
           const hitbox = root.querySelector(".hitbox");
-
-          if (!hitbox) return;
-
           hitbox.object3D.updateWorldMatrix(true, true);
-          this.box.setFromObject(hitbox.object3D);
+          this.bounds.setFromObject(hitbox.object3D);
 
-          if (this.box.isEmpty()) return;
+          if (this.bounds.isEmpty()) return;
 
-          this.box.clampPoint(this.position, this.closestPoint);
+          this.bounds.clampPoint(this.position, this.closest);
+          const distance = this.position.distanceTo(this.closest);
 
-          const distance = this.position.distanceTo(this.closestPoint);
-
-          if (
-            distance <= this.data.handRadius &&
-            distance < bestDistance
-          ) {
+          if (distance < 0.12 && distance < bestDistance) {
             best = root;
             bestDistance = distance;
           }
         });
 
-        if (!best) return;
-
-        const component = best.components.manipulable;
-
-        if (component.startGrab(this.el)) {
+        if (best && best.components.manipulable.start(this.el)) {
           this.grabbed = best;
         }
       },
 
-      onGrabEnd: function () {
+      end: function () {
         if (!this.grabbed) return;
-
-        const component = this.grabbed.components.manipulable;
-
-        if (component) {
-          component.endGrab(this.el);
-        }
-
+        const manip = this.grabbed.components.manipulable;
+        if (manip) manip.end(this.el);
         this.grabbed = null;
       },
 
       remove: function () {
-        this.onGrabEnd();
-
-        this.el.removeEventListener("gripdown", this.onGrabStart);
-        this.el.removeEventListener("gripup", this.onGrabEnd);
-
-        this.el.removeEventListener(
-          "controllerdisconnected",
-          this.onGrabEnd
-        );
+        this.end();
+        this.el.removeEventListener("gripdown", this.start);
+        this.el.removeEventListener("gripup", this.end);
+        this.el.removeEventListener("controllerdisconnected", this.end);
       }
     });
 
     /*
      * ============================================================
-     * CONTROLLERLASER, OBERFLÄCHENMARKIERUNG UND TELEPORTZIEL
+     * LASER, MARKER UND CONTROLLERBUTTONS
      * ============================================================
      */
 
     AFRAME.registerComponent("controller-tools", {
       schema: {
-        hand: {default: "right"},
-        maxDistance: {default: 25}
+        hand: {default: "right"}
       },
 
       init: function () {
-        this.xrInputSource = null;
-
-        this.teleporting = false;
+        this.source = null;
         this.teleportValid = false;
-
-        this.triggerHeld = false;
-        this.gripHeld = false;
-        this.resetLastHeld = false;
-        this.resetAllHeld = false;
-
         this.hit = null;
 
         this.origin = new THREE.Vector3();
-        this.direction = new THREE.Vector3(0, 0, -1);
-
+        this.direction = new THREE.Vector3();
         this.referencePosition = new THREE.Vector3();
-        this.referenceQuaternion = new THREE.Quaternion();
+        this.referenceQ = new THREE.Quaternion();
+        this.worldQ = new THREE.Quaternion();
 
-        this.worldQuaternion = new THREE.Quaternion();
+        this.endpoint = new THREE.Vector3();
+        this.target = new THREE.Vector3();
+        this.localPoint = new THREE.Vector3();
         this.worldScale = new THREE.Vector3();
 
-        this.endPoint = new THREE.Vector3();
-        this.teleportTarget = new THREE.Vector3();
-        this.localMarkerPoint = new THREE.Vector3();
-
         this.raycaster = new THREE.Raycaster();
-        this.raycaster.far = this.data.maxDistance;
+        this.raycaster.far = 25;
 
-        /*
-         * Laser liegt direkt in der Szene.
-         * Damit beginnt er an der tatsächlichen Zielstrahlpose und
-         * wird nicht durch eine abweichende Handmodellrotation verdreht.
-         */
-        this.laserEntity = createEntity("a-entity", {}, this.el.sceneEl);
+        this.states = {
+          trigger: false,
+          grip: false,
+          last: false,
+          all: false
+        };
 
-        this.linePositions = new Float32Array(6);
+        this.lineEntity = entity("a-entity", {}, this.el.sceneEl);
+        this.positions = new Float32Array(6);
 
-        this.lineGeometry = new THREE.BufferGeometry();
-
-        this.lineGeometry.setAttribute(
+        this.geometry = new THREE.BufferGeometry();
+        this.geometry.setAttribute(
           "position",
-          new THREE.BufferAttribute(this.linePositions, 3)
+          new THREE.BufferAttribute(this.positions, 3)
         );
 
-        this.lineMaterial = new THREE.LineBasicMaterial({
-          color: "#72dcff",
+        this.material = new THREE.LineBasicMaterial({
+          color: "#78d9ef",
           transparent: true,
           opacity: 0.95,
           depthTest: true
         });
 
-        this.line = new THREE.Line(
-          this.lineGeometry,
-          this.lineMaterial
-        );
-
+        this.line = new THREE.Line(this.geometry, this.material);
         this.line.frustumCulled = false;
         this.line.visible = false;
+        this.lineEntity.setObject3D("laser", this.line);
 
-        this.laserEntity.setObject3D("laser", this.line);
-
-        this.pointer = createEntity("a-sphere", {
+        this.pointer = entity("a-sphere", {
           radius: 0.009,
           visible: false,
           material: {
             shader: "flat",
-            color: "#ffe366",
+            color: "#ffe6a0",
             depthTest: false
           }
         }, this.el.sceneEl);
 
-        this.teleportRing = createEntity("a-ring", {
+        this.ring = entity("a-ring", {
           "radius-inner": 0.22,
-          "radius-outer": 0.3,
+          "radius-outer": 0.30,
           rotation: "-90 0 0",
           visible: false,
           material: {
             shader: "flat",
-            color: "#53e88c",
-            side: "double",
-            depthTest: true
-          }
-        }, this.el.sceneEl);
-
-        this.teleportDot = createEntity("a-circle", {
-          radius: 0.06,
-          rotation: "-90 0 0",
-          visible: false,
-          material: {
-            shader: "flat",
-            color: "#53e88c",
+            color: "#65e3a1",
             side: "double"
           }
         }, this.el.sceneEl);
 
-        this.onTriggerDown = this.onTriggerDown.bind(this);
-        this.onTriggerUp = this.onTriggerUp.bind(this);
-        this.onDisconnect = this.onDisconnect.bind(this);
-
-        this.onResetLast = () => {
-          const source = getXRSource(
-            this.el.sceneEl,
-            this.data.hand
-          );
-
-          // xr-standard-Controller werden direkt abgefragt.
-          if (
-            source &&
-            source.gamepad &&
-            source.gamepad.mapping === "xr-standard"
-          ) {
-            return;
+        this.triggerDown = () => {
+          if (!this.states.trigger) {
+            this.states.trigger = true;
+            this.mark();
           }
-
-          resetLastModel();
         };
 
-        this.onResetAll = () => {
-          const source = getXRSource(
-            this.el.sceneEl,
-            this.data.hand
-          );
-
-          if (
-            source &&
-            source.gamepad &&
-            source.gamepad.mapping === "xr-standard"
-          ) {
-            return;
-          }
-
-          resetAllModels();
+        this.triggerUp = () => {
+          this.states.trigger = false;
         };
 
-        this.el.addEventListener("triggerdown", this.onTriggerDown);
-        this.el.addEventListener("triggerup", this.onTriggerUp);
+        this.resetLastEvent = () => {
+          const source = xrSource(this.el.sceneEl, this.data.hand);
+          if (source && source.gamepad &&
+              source.gamepad.mapping === "xr-standard") return;
+          resetLast();
+        };
 
-        this.el.addEventListener("abuttondown", this.onResetLast);
-        this.el.addEventListener("xbuttondown", this.onResetLast);
+        this.resetAllEvent = () => {
+          const source = xrSource(this.el.sceneEl, this.data.hand);
+          if (source && source.gamepad &&
+              source.gamepad.mapping === "xr-standard") return;
+          resetAll();
+        };
 
-        this.el.addEventListener("bbuttondown", this.onResetAll);
-        this.el.addEventListener("ybuttondown", this.onResetAll);
+        this.disconnect = this.disconnect.bind(this);
 
-        this.el.addEventListener(
-          "controllerdisconnected",
-          this.onDisconnect
-        );
+        this.el.addEventListener("triggerdown", this.triggerDown);
+        this.el.addEventListener("triggerup", this.triggerUp);
+        this.el.addEventListener("abuttondown", this.resetLastEvent);
+        this.el.addEventListener("xbuttondown", this.resetLastEvent);
+        this.el.addEventListener("bbuttondown", this.resetAllEvent);
+        this.el.addEventListener("ybuttondown", this.resetAllEvent);
+        this.el.addEventListener("controllerdisconnected", this.disconnect);
       },
 
       updateRay: function () {
-        const scene = this.el.sceneEl;
+        const s = this.el.sceneEl;
         const rig = document.getElementById("rig");
+        const provider = s.components["xr-ray-provider"];
 
-        const source = getXRSource(scene, this.data.hand);
+        this.source = xrSource(s, this.data.hand);
 
-        this.xrInputSource = source;
-
-        const provider = scene.components["xr-ray-provider"];
-
-        let usedXR = false;
-
-        if (source && provider && rig) {
-          usedXR = provider.getReferencePose(
-            source,
+        const hasPose = provider && this.source &&
+          provider.getPose(
+            this.source,
             this.referencePosition,
-            this.referenceQuaternion
+            this.referenceQ
           );
 
-          if (usedXR) {
-            rig.object3D.updateWorldMatrix(true, false);
+        if (hasPose) {
+          rig.object3D.updateWorldMatrix(true, false);
 
-            this.origin
-              .copy(this.referencePosition)
-              .applyMatrix4(rig.object3D.matrixWorld);
+          this.origin.copy(this.referencePosition)
+            .applyMatrix4(rig.object3D.matrixWorld);
 
-            this.direction
-              .set(0, 0, -1)
-              .applyQuaternion(this.referenceQuaternion)
-              .transformDirection(rig.object3D.matrixWorld);
-          }
-        }
-
-        if (!usedXR) {
-          /*
-           * Fallback, falls die Laufzeit noch keine Zielstrahlpose
-           * bereitstellt. Sobald diese verfügbar ist, wird sie genutzt.
-           */
+          this.direction.set(0, 0, -1)
+            .applyQuaternion(this.referenceQ)
+            .transformDirection(rig.object3D.matrixWorld);
+        } else {
           this.el.object3D.getWorldPosition(this.origin);
-          this.el.object3D.getWorldQuaternion(this.worldQuaternion);
+          this.el.object3D.getWorldQuaternion(this.worldQ);
 
-          this.direction
-            .set(0, 0, -1)
-            .applyQuaternion(this.worldQuaternion)
-            .normalize();
+          this.direction.set(0, 0, -1)
+            .applyQuaternion(this.worldQ).normalize();
         }
 
         this.raycaster.set(this.origin, this.direction);
       },
 
-      getModelMeshes: function () {
+      updateHit: function () {
         const meshes = [];
 
-        this.el.sceneEl.querySelectorAll(".model-visual").forEach(el => {
-          if (!el.object3D.visible) return;
+        this.el.sceneEl.querySelectorAll(".model-visual").forEach(visual => {
+          const root = visual.closest(".interactable");
+          if (!root || !root.modelReady || !visual.object3D.visible) return;
 
-          const root = el.closest(".interactable");
+          visual.object3D.updateWorldMatrix(true, true);
 
-          if (!root || !root.modelReady) return;
-
-          el.object3D.updateWorldMatrix(true, true);
-
-          el.object3D.traverse(object => {
-            if (!object.isMesh || !object.visible) return;
-
-            meshes.push(object);
+          visual.object3D.traverse(object => {
+            if (object.isMesh && object.visible) {
+              meshes.push(object);
+            }
           });
         });
 
-        return meshes;
-      },
-
-      updateModelPointer: function () {
-        const meshes = this.getModelMeshes();
-
-        const intersections = this.raycaster.intersectObjects(
-          meshes,
-          false
-        );
-
         this.hit = null;
 
-        for (const intersection of intersections) {
+        for (const intersection of this.raycaster.intersectObjects(meshes, false)) {
           let object = intersection.object;
-          let entity = null;
+          let el = null;
 
-          while (object && !entity) {
-            if (object.el) entity = object.el;
+          while (object && !el) {
+            el = object.el || null;
             object = object.parent;
           }
 
-          const root = entity && entity.closest(".interactable");
+          const root = el && el.closest(".interactable");
 
-          if (root && root.modelReady) {
+          if (root) {
             this.hit = {
-              root: root,
-              point: intersection.point.clone(),
-              distance: intersection.distance
+              root,
+              point: intersection.point.clone()
             };
-
             break;
           }
         }
 
+        this.pointer.object3D.visible = !!this.hit;
+
         if (this.hit) {
           this.pointer.object3D.position.copy(this.hit.point);
-          this.pointer.object3D.visible = true;
-
-          this.endPoint.copy(this.hit.point);
+          this.endpoint.copy(this.hit.point);
         } else {
-          this.pointer.object3D.visible = false;
-
-          this.endPoint
-            .copy(this.direction)
-            .multiplyScalar(this.data.maxDistance)
-            .add(this.origin);
+          this.endpoint.copy(this.direction)
+            .multiplyScalar(25).add(this.origin);
         }
       },
 
-      drawLine: function (color) {
-        const positions = this.linePositions;
-
-        positions[0] = this.origin.x;
-        positions[1] = this.origin.y;
-        positions[2] = this.origin.z;
-
-        positions[3] = this.endPoint.x;
-        positions[4] = this.endPoint.y;
-        positions[5] = this.endPoint.z;
-
-        this.lineGeometry.attributes.position.needsUpdate = true;
-        this.lineMaterial.color.set(color);
-      },
-
-      onTriggerDown: function () {
-        if (this.triggerHeld) return;
-
-        this.triggerHeld = true;
-        this.markSurface();
-      },
-
-      onTriggerUp: function () {
-        this.triggerHeld = false;
-      },
-
-      markSurface: function () {
-        const scene = this.el.sceneEl;
+      mark: function () {
+        const s = this.el.sceneEl;
         const grabber = this.el.components["hand-grabber"];
+        const nav = document.getElementById("rig").components.navigation;
 
-        if (!scene.is("vr-mode")) return;
-        if (this.teleporting) return;
+        if (!s.is("vr-mode")) return;
+        if (nav && nav.teleporting) return;
         if (grabber && grabber.grabbed) return;
 
         this.updateRay();
-        this.updateModelPointer();
-
+        this.updateHit();
         if (!this.hit) return;
 
         const body = this.hit.root.querySelector(".manip-body");
-
-        if (!body) return;
-
         selectModel(this.hit.root);
 
         body.object3D.updateWorldMatrix(true, true);
 
-        this.localMarkerPoint.copy(this.hit.point);
-        body.object3D.worldToLocal(this.localMarkerPoint);
-
+        this.localPoint.copy(this.hit.point);
+        body.object3D.worldToLocal(this.localPoint);
         body.object3D.getWorldScale(this.worldScale);
 
-        const scale = Math.max(
-          0.0001,
-          Math.abs(this.worldScale.x)
-        );
-
-        /*
-         * Marker hat beim Setzen ungefähr 12 mm Weltradius.
-         * Anschließend wächst und schrumpft er mit dem Modell.
-         */
-        createEntity("a-sphere", {
+        entity("a-sphere", {
           class: "atom-marker",
           position: {
-            x: this.localMarkerPoint.x,
-            y: this.localMarkerPoint.y,
-            z: this.localMarkerPoint.z
+            x: this.localPoint.x,
+            y: this.localPoint.y,
+            z: this.localPoint.z
           },
-          radius: 0.012 / scale,
+          radius: 0.012 / Math.max(0.0001, Math.abs(this.worldScale.x)),
           material: {
             shader: "flat",
             color: "#ff3f92",
@@ -1467,1750 +1020,1159 @@
       },
 
       pollButtons: function () {
-        const source = this.xrInputSource;
-        const gamepad = source && source.gamepad;
+        const gp = this.source && this.source.gamepad;
+        if (!gp) return;
 
-        if (!gamepad) return;
-
-        const trigger = buttonPressed(gamepad, 0);
-        const grip = buttonPressed(gamepad, 1);
-
-        if (trigger && !this.triggerHeld) {
-          this.onTriggerDown();
-        } else if (!trigger && this.triggerHeld) {
-          this.onTriggerUp();
-        }
-
+        const trigger = pressed(gp, 0);
+        const grip = pressed(gp, 1);
         const grabber = this.el.components["hand-grabber"];
 
-        if (grip && !this.gripHeld) {
-          if (grabber) grabber.onGrabStart();
-        } else if (!grip && this.gripHeld) {
-          if (grabber) grabber.onGrabEnd();
-        }
+        if (trigger && !this.states.trigger) this.triggerDown();
+        if (!trigger && this.states.trigger) this.triggerUp();
 
-        this.gripHeld = grip;
+        if (grip && !this.states.grip && grabber) grabber.start();
+        if (!grip && this.states.grip && grabber) grabber.end();
+        this.states.grip = grip;
 
-        if (gamepad.mapping === "xr-standard") {
-          const resetLast = buttonPressed(gamepad, 4);
-          const resetAll = buttonPressed(gamepad, 5);
+        if (gp.mapping === "xr-standard") {
+          const last = pressed(gp, 4);
+          const all = pressed(gp, 5);
 
-          if (resetLast && !this.resetLastHeld) {
-            resetLastModel();
-          }
+          if (last && !this.states.last) resetLast();
+          if (all && !this.states.all) resetAll();
 
-          if (resetAll && !this.resetAllHeld) {
-            resetAllModels();
-          }
-
-          this.resetLastHeld = resetLast;
-          this.resetAllHeld = resetAll;
+          this.states.last = last;
+          this.states.all = all;
         }
       },
 
-      updateTeleportTarget: function () {
+      updateTeleport: function () {
         this.teleportValid = false;
         this.pointer.object3D.visible = false;
+        this.ring.object3D.visible = false;
 
-        /*
-         * Gerader Strahl zur Bodenebene y=0.
-         * Dafür den Controller etwas nach unten halten.
-         */
-        if (this.direction.y >= -0.03) {
-          this.teleportRing.object3D.visible = false;
-          this.teleportDot.object3D.visible = false;
+        this.endpoint.copy(this.direction)
+          .multiplyScalar(25).add(this.origin);
 
-          this.endPoint
-            .copy(this.direction)
-            .multiplyScalar(this.data.maxDistance)
-            .add(this.origin);
-
-          return;
-        }
+        if (this.direction.y >= -0.03) return;
 
         const distance = -this.origin.y / this.direction.y;
+        if (distance <= 0 || distance > 25) return;
 
-        if (
-          distance <= 0 ||
-          distance > this.data.maxDistance
-        ) {
-          this.teleportRing.object3D.visible = false;
-          this.teleportDot.object3D.visible = false;
+        this.target.copy(this.direction)
+          .multiplyScalar(distance).add(this.origin);
 
-          this.endPoint
-            .copy(this.direction)
-            .multiplyScalar(this.data.maxDistance)
-            .add(this.origin);
+        this.target.y = 0;
+        this.endpoint.copy(this.target);
 
-          return;
-        }
+        this.teleportValid = validFloor(this.target.x, this.target.z);
 
-        this.teleportTarget
-          .copy(this.direction)
-          .multiplyScalar(distance)
-          .add(this.origin);
+        this.ring.object3D.position.set(
+          this.target.x, 0.02, this.target.z
+        );
 
-        this.teleportTarget.y = 0;
-
-        const x = this.teleportTarget.x;
-        const z = this.teleportTarget.z;
-
-        const halfW = HALL_CONFIG.width / 2;
-        const halfD = HALL_CONFIG.depth / 2;
-
-        const inside =
-          Math.abs(x) < halfW - 0.6 &&
-          Math.abs(z) < halfD - 0.6;
-
-        const outside =
-          (
-            Math.abs(x) > halfW + 0.6 ||
-            Math.abs(z) > halfD + 0.6
-          ) &&
-          Math.abs(x) < 80 &&
-          Math.abs(z) < 80;
-
-        this.teleportValid = inside || outside;
-
-        const color = this.teleportValid
-          ? "#53e88c"
-          : "#ff5b65";
-
-        this.teleportRing.setAttribute("material", "color", color);
-        this.teleportDot.setAttribute("material", "color", color);
-
-        this.teleportRing.object3D.position.set(x, 0.018, z);
-        this.teleportDot.object3D.position.set(x, 0.019, z);
-
-        this.teleportRing.object3D.visible = true;
-        this.teleportDot.object3D.visible = true;
-
-        this.endPoint.copy(this.teleportTarget);
+        this.ring.object3D.visible = true;
+        this.ring.setAttribute(
+          "material", "color",
+          this.teleportValid ? "#65e3a1" : "#ff6767"
+        );
       },
 
-      performTeleport: function () {
+      teleport: function () {
         if (!this.teleportValid) return;
 
-        const scene = this.el.sceneEl;
+        const s = this.el.sceneEl;
         const rig = document.getElementById("rig");
-        const camera = scene.camera;
+        const p = new THREE.Vector3();
 
-        if (!rig || !camera) return;
+        releaseHands(s);
+        s.camera.getWorldPosition(p);
 
-        releaseAllHands(scene);
-
-        const cameraPosition = new THREE.Vector3();
-        camera.getWorldPosition(cameraPosition);
-
-        /*
-         * Reale Kopfposition im Raum berücksichtigen:
-         * Nicht einfach das Rig direkt auf den Zielpunkt setzen.
-         */
-        rig.object3D.position.x +=
-          this.teleportTarget.x - cameraPosition.x;
-
-        rig.object3D.position.z +=
-          this.teleportTarget.z - cameraPosition.z;
-
-        rig.object3D.updateMatrixWorld(true);
+        rig.object3D.position.x += this.target.x - p.x;
+        rig.object3D.position.z += this.target.z - p.z;
+        rig.object3D.updateWorldMatrix(true, true);
       },
 
-      cancelTeleport: function () {
-        this.teleporting = false;
-        this.teleportValid = false;
-
-        this.teleportRing.object3D.visible = false;
-        this.teleportDot.object3D.visible = false;
-      },
-
-      onDisconnect: function () {
-        this.cancelTeleport();
-
-        this.xrInputSource = null;
-
-        this.triggerHeld = false;
-        this.gripHeld = false;
-        this.resetLastHeld = false;
-        this.resetAllHeld = false;
-
+      hide: function () {
         this.line.visible = false;
         this.pointer.object3D.visible = false;
+        this.ring.object3D.visible = false;
+      },
+
+      disconnect: function () {
+        this.hide();
+        this.source = null;
+        this.teleportValid = false;
+
+        Object.keys(this.states).forEach(key => {
+          this.states[key] = false;
+        });
 
         const grabber = this.el.components["hand-grabber"];
-
-        if (grabber) {
-          grabber.onGrabEnd();
-        }
+        if (grabber) grabber.end();
       },
 
       tick: function () {
-        const scene = this.el.sceneEl;
+        const s = this.el.sceneEl;
 
-        if (!scene.is("vr-mode")) {
-          this.line.visible = false;
-          this.pointer.object3D.visible = false;
-
-          this.teleportRing.object3D.visible = false;
-          this.teleportDot.object3D.visible = false;
-
+        if (!s.is("vr-mode")) {
+          this.hide();
           return;
         }
 
         this.updateRay();
 
-        if (!this.xrInputSource) {
-          this.onDisconnect();
+        if (!this.source) {
+          this.disconnect();
           return;
         }
 
         this.pollButtons();
 
         const grabber = this.el.components["hand-grabber"];
-
         if (grabber && grabber.grabbed) {
-          this.line.visible = false;
-          this.pointer.object3D.visible = false;
+          this.hide();
           return;
         }
 
+        const nav = document.getElementById("rig").components.navigation;
+        const teleporting = this.data.hand === "right" &&
+          nav && nav.teleporting;
+
         this.line.visible = true;
 
-        if (this.teleporting) {
-          this.updateTeleportTarget();
-
-          this.drawLine(
-            this.teleportValid ? "#53e88c" : "#ff5b65"
-          );
-        } else {
-          this.teleportRing.object3D.visible = false;
-          this.teleportDot.object3D.visible = false;
-
-          this.updateModelPointer();
-          this.drawLine("#72dcff");
+        if (teleporting) this.updateTeleport();
+        else {
+          this.ring.object3D.visible = false;
+          this.updateHit();
         }
+
+        this.material.color.set(
+          teleporting
+            ? (this.teleportValid ? "#65e3a1" : "#ff6767")
+            : "#78d9ef"
+        );
+
+        this.positions.set([
+          this.origin.x, this.origin.y, this.origin.z,
+          this.endpoint.x, this.endpoint.y, this.endpoint.z
+        ]);
+
+        this.geometry.attributes.position.needsUpdate = true;
       },
 
       remove: function () {
-        this.el.removeEventListener(
-          "triggerdown",
-          this.onTriggerDown
-        );
+        this.el.removeEventListener("triggerdown", this.triggerDown);
+        this.el.removeEventListener("triggerup", this.triggerUp);
+        this.el.removeEventListener("abuttondown", this.resetLastEvent);
+        this.el.removeEventListener("xbuttondown", this.resetLastEvent);
+        this.el.removeEventListener("bbuttondown", this.resetAllEvent);
+        this.el.removeEventListener("ybuttondown", this.resetAllEvent);
+        this.el.removeEventListener("controllerdisconnected", this.disconnect);
 
-        this.el.removeEventListener(
-          "triggerup",
-          this.onTriggerUp
-        );
-
-        this.el.removeEventListener(
-          "abuttondown",
-          this.onResetLast
-        );
-
-        this.el.removeEventListener(
-          "xbuttondown",
-          this.onResetLast
-        );
-
-        this.el.removeEventListener(
-          "bbuttondown",
-          this.onResetAll
-        );
-
-        this.el.removeEventListener(
-          "ybuttondown",
-          this.onResetAll
-        );
-
-        this.el.removeEventListener(
-          "controllerdisconnected",
-          this.onDisconnect
-        );
-
-        this.lineGeometry.dispose();
-        this.lineMaterial.dispose();
-
-        this.laserEntity.remove();
+        this.geometry.dispose();
+        this.material.dispose();
+        this.lineEntity.remove();
         this.pointer.remove();
-        this.teleportRing.remove();
-        this.teleportDot.remove();
+        this.ring.remove();
       }
     });
 
     /*
      * ============================================================
-     * NAVIGATION
+     * NAVIGATION MIT SNAP-TURN
      *
-     * VR:
-     * - Linker Stick: blickrichtungsabhängig laufen.
-     * - Rechter Stick nach vorne: Teleportziel wählen.
-     * - Rechter Stick zurück in Mitte: teleportieren.
+     * Links: laufen.
+     * Rechts horizontal: 45° drehen.
+     * Rechts nach vorne: Teleportmodus.
+     * Rechts zurück in Mitte: teleportieren.
      *
-     * Desktop:
-     * - WASD / Pfeiltasten.
-     *
-     * Kein movement-controls und keine axismove-Abhängigkeit.
+     * Joystick muss nach Drehung in die Mitte zurück:
+     * keine unkontrollierte Folge von Drehungen.
      * ============================================================
      */
 
-    AFRAME.registerComponent("vr-navigation", {
+    AFRAME.registerComponent("navigation", {
       schema: {
-        speed: {default: 1.2},
-        desktopSpeed: {default: 2.2},
+        speed: {default: 3},
+        desktopSpeed: {default: 4},
+        snapAngle: {default: 45},
         deadzone: {default: 0.18}
       },
 
       init: function () {
         this.keys = new Set();
+        this.teleporting = false;
+        this.rightReady = false;
 
-        this.forward = new THREE.Vector3(0, 0, -1);
-        this.right = new THREE.Vector3(1, 0, 0);
-        this.move = new THREE.Vector3();
+        this.forward = new THREE.Vector3();
+        this.right = new THREE.Vector3();
+        this.movement = new THREE.Vector3();
+        this.cameraPosition = new THREE.Vector3();
+        this.pivot = new THREE.Vector3();
+        this.axis = new THREE.Vector3(0, 1, 0);
 
-        this.teleportBlocked = true;
+        this.keyDown = e => {
+          const target = e.target;
+          if (target && (
+            target.tagName === "INPUT" ||
+            target.tagName === "TEXTAREA" ||
+            target.isContentEditable
+          )) return;
 
-        this.onKeyDown = event => {
-          const target = event.target;
-
-          if (
-            target &&
-            (
-              target.tagName === "INPUT" ||
-              target.tagName === "TEXTAREA" ||
-              target.isContentEditable
-            )
-          ) {
-            return;
-          }
-
-          const allowed = [
-            "KeyW", "KeyA", "KeyS", "KeyD",
+          if ([
+            "KeyW", "KeyA", "KeyS", "KeyD", "KeyQ", "KeyE",
             "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"
-          ];
-
-          if (allowed.includes(event.code)) {
-            this.keys.add(event.code);
-            event.preventDefault();
+          ].includes(e.code)) {
+            this.keys.add(e.code);
+            e.preventDefault();
           }
         };
 
-        this.onKeyUp = event => {
-          this.keys.delete(event.code);
-        };
+        this.keyUp = e => this.keys.delete(e.code);
 
-        this.onBlur = () => {
+        this.cleanup = () => {
           this.keys.clear();
-          this.cancelTeleport();
+          this.teleporting = false;
+          this.rightReady = false;
+
+          const tools = this.tools();
+          if (tools) {
+            tools.ring.object3D.visible = false;
+            tools.teleportValid = false;
+          }
         };
 
-        this.onExitVR = () => {
-          this.cancelTeleport();
-          this.teleportBlocked = true;
-          this.keys.clear();
-        };
-
-        this.onEnterVR = () => {
-          this.teleportBlocked = true;
-          this.keys.clear();
-        };
-
-        window.addEventListener("keydown", this.onKeyDown);
-        window.addEventListener("keyup", this.onKeyUp);
-        window.addEventListener("blur", this.onBlur);
-
-        this.el.sceneEl.addEventListener("exit-vr", this.onExitVR);
-        this.el.sceneEl.addEventListener("enter-vr", this.onEnterVR);
+        window.addEventListener("keydown", this.keyDown);
+        window.addEventListener("keyup", this.keyUp);
+        window.addEventListener("blur", this.cleanup);
+        this.el.sceneEl.addEventListener("enter-vr", this.cleanup);
+        this.el.sceneEl.addEventListener("exit-vr", this.cleanup);
       },
 
-      getRightTools: function () {
+      tools: function () {
         const hand = document.getElementById("rightHand");
-
         return hand && hand.components["controller-tools"];
       },
 
-      cancelTeleport: function () {
-        const tools = this.getRightTools();
-
-        if (tools) {
-          tools.cancelTeleport();
-        }
-      },
-
-      applyDeadzone: function (value) {
-        const absolute = Math.abs(value);
-
-        if (absolute <= this.data.deadzone) {
-          return 0;
-        }
-
+      deadzone: function (value) {
+        const a = Math.abs(value);
+        if (a <= this.data.deadzone) return 0;
         return Math.sign(value) *
-          (absolute - this.data.deadzone) /
-          (1 - this.data.deadzone);
+          (a - this.data.deadzone) / (1 - this.data.deadzone);
       },
 
-      moveRig: function (x, y, speed, delta) {
-        if (x === 0 && y === 0) return;
-
+      rotateAroundHead: function (angle) {
         const camera = this.el.sceneEl.camera;
         if (!camera) return;
 
-        camera.getWorldDirection(this.forward);
+        /*
+         * Rig hat direkt die Szene als Elternknoten.
+         * Kopfposition bleibt beim Drehen am selben Ort.
+         */
+        camera.getWorldPosition(this.pivot);
+
+        this.el.object3D.position.sub(this.pivot)
+          .applyAxisAngle(this.axis, angle)
+          .add(this.pivot);
+
+        this.el.object3D.rotation.y += angle;
+        this.el.object3D.updateWorldMatrix(true, true);
+      },
+
+      move: function (x, y, speed, delta) {
+        const s = this.el.sceneEl;
+        if (!s.camera || (x === 0 && y === 0)) return;
+
+        s.camera.getWorldDirection(this.forward);
         this.forward.y = 0;
 
         if (this.forward.lengthSq() < 0.0001) {
           this.forward.set(0, 0, -1);
-        } else {
-          this.forward.normalize();
-        }
+        } else this.forward.normalize();
 
-        this.right.set(
-          -this.forward.z,
-          0,
-          this.forward.x
-        );
+        this.right.set(-this.forward.z, 0, this.forward.x);
 
-        this.move
-          .copy(this.forward)
-          .multiplyScalar(-y)
+        this.movement.copy(this.forward).multiplyScalar(-y)
           .addScaledVector(this.right, x);
 
-        if (this.move.lengthSq() > 1) {
-          this.move.normalize();
+        if (this.movement.lengthSq() > 1) this.movement.normalize();
+
+        const dt = Math.min((delta || 0) / 1000, 0.05);
+        this.movement.multiplyScalar(speed * dt);
+
+        s.camera.getWorldPosition(this.cameraPosition);
+
+        // Achsenweise prüfen: erlaubt entlang Hindernissen zu gleiten.
+        if (validFloor(
+          this.cameraPosition.x + this.movement.x,
+          this.cameraPosition.z
+        )) {
+          this.el.object3D.position.x += this.movement.x;
+          this.cameraPosition.x += this.movement.x;
         }
 
-        const seconds = Math.min(
-          Math.max((delta || 0) / 1000, 0),
-          0.05
-        );
+        if (validFloor(
+          this.cameraPosition.x,
+          this.cameraPosition.z + this.movement.z
+        )) {
+          this.el.object3D.position.z += this.movement.z;
+        }
 
-        this.el.object3D.position.addScaledVector(
-          this.move,
-          speed * seconds
-        );
-
-        this.el.object3D.updateMatrixWorld(true);
+        this.el.object3D.updateWorldMatrix(true, true);
       },
 
       tick: function (time, delta) {
-        const scene = this.el.sceneEl;
+        const s = this.el.sceneEl;
 
-        if (!scene.is("vr-mode")) {
-          let x = 0;
-          let y = 0;
+        if (!s.is("vr-mode")) {
+          let x = 0, y = 0;
 
-          if (
-            this.keys.has("KeyA") ||
-            this.keys.has("ArrowLeft")
-          ) {
-            x -= 1;
+          if (this.keys.has("KeyA") || this.keys.has("ArrowLeft")) x--;
+          if (this.keys.has("KeyD") || this.keys.has("ArrowRight")) x++;
+          if (this.keys.has("KeyW") || this.keys.has("ArrowUp")) y--;
+          if (this.keys.has("KeyS") || this.keys.has("ArrowDown")) y++;
+
+          const turn =
+            (this.keys.has("KeyQ") ? 1 : 0) -
+            (this.keys.has("KeyE") ? 1 : 0);
+
+          if (turn) {
+            this.rotateAroundHead(
+              turn * 1.5 * Math.min((delta || 0) / 1000, 0.05)
+            );
           }
 
-          if (
-            this.keys.has("KeyD") ||
-            this.keys.has("ArrowRight")
-          ) {
-            x += 1;
-          }
-
-          if (
-            this.keys.has("KeyW") ||
-            this.keys.has("ArrowUp")
-          ) {
-            y -= 1;
-          }
-
-          if (
-            this.keys.has("KeyS") ||
-            this.keys.has("ArrowDown")
-          ) {
-            y += 1;
-          }
-
-          this.moveRig(x, y, this.data.desktopSpeed, delta);
+          this.move(x, y, this.data.desktopSpeed, delta);
           return;
         }
 
-        const leftSource = getXRSource(scene, "left");
-        const rightSource = getXRSource(scene, "right");
-
-        const leftStick = readXRStick(leftSource);
-        const rightStick = readXRStick(rightSource);
-
-        const tools = this.getRightTools();
+        const leftSource = xrSource(s, "left");
+        const rightSource = xrSource(s, "right");
+        const left = stick(leftSource);
+        const right = stick(rightSource);
+        const tools = this.tools();
 
         const neutral =
-          Math.abs(rightStick.x) < 0.2 &&
-          Math.abs(rightStick.y) < 0.2;
-
-        const grabbing = anyHandGrabbing(scene);
+          Math.abs(right.x) < 0.2 &&
+          Math.abs(right.y) < 0.2;
 
         if (!rightSource) {
-          this.cancelTeleport();
-          this.teleportBlocked = true;
-        } else if (grabbing) {
-          this.cancelTeleport();
-          this.teleportBlocked = true;
-        } else if (tools) {
-          if (this.teleportBlocked) {
-            if (neutral) {
-              this.teleportBlocked = false;
-            }
-          } else if (!tools.teleporting) {
-            if (rightStick.y < -0.65) {
-              tools.teleporting = true;
-
-              tools.updateRay();
-              tools.updateTeleportTarget();
-            }
-          } else {
+          this.teleporting = false;
+          this.rightReady = false;
+        } else if (this.teleporting) {
+          if (grabbing(s)) {
+            this.teleporting = false;
+            this.rightReady = false;
+          } else if (tools) {
             tools.updateRay();
-            tools.updateTeleportTarget();
+            tools.updateTeleport();
 
             if (neutral) {
-              tools.performTeleport();
-              tools.cancelTeleport();
+              tools.teleport();
+              this.teleporting = false;
+              this.rightReady = true;
+            }
+          }
+        } else if (neutral) {
+          this.rightReady = true;
+        } else if (this.rightReady) {
+          // Dominante horizontale Bewegung = Drehen.
+          if (
+            Math.abs(right.x) > 0.65 &&
+            Math.abs(right.x) > Math.abs(right.y)
+          ) {
+            /*
+             * Modelle vor einem künstlichen Drehungssprung loslassen:
+             * verhindert, dass ein gehaltenes Modell mitgerissen wird.
+             */
+            releaseHands(s);
+
+            this.rotateAroundHead(
+              -Math.sign(right.x) *
+              THREE.MathUtils.degToRad(this.data.snapAngle)
+            );
+
+            this.rightReady = false;
+          } else if (right.y < -0.65 && !grabbing(s)) {
+            this.teleporting = true;
+            this.rightReady = false;
+
+            if (tools) {
+              tools.updateRay();
+              tools.updateTeleport();
             }
           }
         }
 
-        if (tools && tools.teleporting) {
-          return;
+        if (!this.teleporting) {
+          this.move(
+            this.deadzone(left.x),
+            this.deadzone(left.y),
+            this.data.speed,
+            delta
+          );
         }
-
-        this.moveRig(
-          this.applyDeadzone(leftStick.x),
-          this.applyDeadzone(leftStick.y),
-          this.data.speed,
-          delta
-        );
       },
 
       remove: function () {
-        window.removeEventListener("keydown", this.onKeyDown);
-        window.removeEventListener("keyup", this.onKeyUp);
-        window.removeEventListener("blur", this.onBlur);
-
-        this.el.sceneEl.removeEventListener(
-          "exit-vr",
-          this.onExitVR
-        );
-
-        this.el.sceneEl.removeEventListener(
-          "enter-vr",
-          this.onEnterVR
-        );
+        window.removeEventListener("keydown", this.keyDown);
+        window.removeEventListener("keyup", this.keyUp);
+        window.removeEventListener("blur", this.cleanup);
+        this.el.sceneEl.removeEventListener("enter-vr", this.cleanup);
+        this.el.sceneEl.removeEventListener("exit-vr", this.cleanup);
       }
     });
 
     /*
      * ============================================================
-     * HALLE, WÄNDE, FENSTER, TÜR UND STATIONEN
+     * MUSEUMSAUFBAU
      * ============================================================
      */
 
-    AFRAME.registerComponent("chemistry-hall", {
+    AFRAME.registerComponent("museum", {
       init: function () {
         this.buildFloor();
         this.buildWalls();
         this.buildCeiling();
-        this.buildLighting();
-        this.buildStations();
-        this.buildInstructions();
-      },
+        this.buildDoor();
+        this.buildLights();
 
-      box: function (position, width, height, depth, material, parent) {
-        return createEntity("a-box", {
-          position: position,
-          width: width,
-          height: height,
-          depth: depth,
-          material: material
-        }, parent || this.el);
+        STATIONS.forEach((station, index) => {
+          this.buildStation(station, index);
+        });
       },
 
       buildFloor: function () {
-        const c = HALL_CONFIG;
+        const c = CONFIG;
 
-        this.box(
-          {x: 0, y: -0.06, z: 0},
-          c.width,
-          0.12,
-          c.depth,
-          c.materials.floor
-        );
+        box(this.el, 0, -0.08, 0,
+          c.width, 0.16, c.depth, "#84603c");
 
-        createEntity("a-plane", {
-          position: "0 0.006 0",
+        entity("a-plane", {
+          position: "0 0.004 0",
           rotation: "-90 0 0",
-          width: 26,
-          height: 18,
+          width: c.width,
+          height: c.depth,
           material: {
-            shader: "flat",
-            color: "#f4f1e7",
-            opacity: 0.12,
-            transparent: true,
-            side: "double"
+            src: "#parquet",
+            repeat: "8 5.6675",
+            color: "#ffffff",
+            roughness: 0.65,
+            metalness: 0.02
           }
         }, this.el);
 
-        // Spielfeldmarkierungen.
-        const lineMaterial = {
-          shader: "flat",
-          color: "#f7f4ea"
+        // Dunkle umlaufende Parkettbordüre.
+        const wood = "#775137";
+
+        box(this.el, 0, 0.009, -c.depth / 2 + 0.29,
+          c.width - 0.3, 0.009, 0.35, wood);
+        box(this.el, 0, 0.009, c.depth / 2 - 0.29,
+          c.width - 0.3, 0.009, 0.35, wood);
+        box(this.el, -c.width / 2 + 0.29, 0.009, 0,
+          0.35, 0.009, c.depth - 0.3, wood);
+        box(this.el, c.width / 2 - 0.29, 0.009, 0,
+          0.35, 0.009, c.depth - 0.3, wood);
+
+        // Schmale helle Intarsienlinie neben der Bordüre.
+        const inlay = "#d9b979";
+
+        box(this.el, 0, 0.015, -c.depth / 2 + 0.5,
+          c.width - 1, 0.008, 0.025, inlay);
+        box(this.el, 0, 0.015, c.depth / 2 - 0.5,
+          c.width - 1, 0.008, 0.025, inlay);
+        box(this.el, -c.width / 2 + 0.5, 0.015, 0,
+          0.025, 0.008, c.depth - 1, inlay);
+        box(this.el, c.width / 2 - 0.5, 0.015, 0,
+          0.025, 0.008, c.depth - 1, inlay);
+      },
+
+      wallGroup: function (wall) {
+        const c = CONFIG;
+        const side = wall === "left" || wall === "right";
+
+        const positions = {
+          left:  {x: -c.width / 2, y: 0, z: 0},
+          right: {x:  c.width / 2, y: 0, z: 0},
+          front: {x: 0, y: 0, z: -c.depth / 2},
+          back:  {x: 0, y: 0, z:  c.depth / 2}
         };
 
-        this.box(
-          {x: 0, y: 0.012, z: -9},
-          26,
-          0.012,
-          0.055,
-          lineMaterial
-        );
+        const rotations = {
+          left: "0 90 0",
+          right: "0 -90 0",
+          front: "0 0 0",
+          back: "0 180 0"
+        };
 
-        this.box(
-          {x: 0, y: 0.012, z: 9},
-          26,
-          0.012,
-          0.055,
-          lineMaterial
-        );
-
-        this.box(
-          {x: -13, y: 0.012, z: 0},
-          0.055,
-          0.012,
-          18,
-          lineMaterial
-        );
-
-        this.box(
-          {x: 13, y: 0.012, z: 0},
-          0.055,
-          0.012,
-          18,
-          lineMaterial
-        );
-
-        this.box(
-          {x: 0, y: 0.013, z: 0},
-          0.055,
-          0.012,
-          18,
-          lineMaterial
-        );
-
-        createEntity("a-ring", {
-          position: "0 0.021 0",
-          rotation: "-90 0 0",
-          "radius-inner": 2.57,
-          "radius-outer": 2.63,
-          material: {
-            shader: "flat",
-            color: "#f7f4ea",
-            side: "double"
-          }
-        }, this.el);
+        return {
+          el: entity("a-entity", {
+            position: positions[wall],
+            rotation: rotations[wall]
+          }, this.el),
+          length: side ? c.depth : c.width
+        };
       },
 
       buildWalls: function () {
-        const c = HALL_CONFIG;
+        const c = CONFIG;
+        const colors = c.colors;
 
-        const sideWindows = [-7, 0, 7].map(center => ({
-          start: center - 1.6,
-          end: center + 1.6,
-          bottom: 5.7,
-          top: 6.9,
-          type: "window"
-        }));
+        ["left", "right", "front", "back"].forEach(wall => {
+          const group = this.wallGroup(wall);
+          const parent = group.el;
+          const length = group.length;
 
-        const endWindows = [-10, 10].map(center => ({
-          start: center - 1.6,
-          end: center + 1.6,
-          bottom: 5.7,
-          top: 6.9,
-          type: "window"
-        }));
+          box(parent, 0, c.height / 2, 0,
+            length, c.height, c.wallThickness, colors.wall);
 
-        this.buildOneWall(
-          "left",
-          c.depth,
-          sideWindows
-        );
+          // Sockelverkleidung.
+          box(parent, 0, 0.36, 0.17,
+            length - 0.3, 0.72, 0.07, colors.creamDark);
+          box(parent, 0, 0.075, 0.22,
+            length - 0.3, 0.15, 0.11, colors.cream);
+          box(parent, 0, 0.74, 0.23,
+            length - 0.3, 0.065, 0.13, colors.cream);
 
-        this.buildOneWall(
-          "right",
-          c.depth,
-          sideWindows
-        );
+          goldBox(parent, 0, 0.795, 0.205,
+            length - 0.3, 0.025, 0.055, colors.goldDark);
 
-        this.buildOneWall(
-          "back",
-          c.width,
-          endWindows
-        );
+          // Mehrstufiges Deckengesims.
+          box(parent, 0, c.height - 0.52, 0.20,
+            length, 0.12, 0.14, colors.creamDark);
+          box(parent, 0, c.height - 0.37, 0.25,
+            length, 0.16, 0.24, colors.cream);
+          box(parent, 0, c.height - 0.20, 0.31,
+            length, 0.12, 0.36, colors.cream);
 
-        this.buildOneWall(
-          "front",
-          c.width,
-          [
-            ...endWindows,
-            {
-              start: -2.1,
-              end: 2.1,
-              bottom: 0,
-              top: 3.2,
-              type: "door"
-            }
-          ]
-        );
+          goldBox(parent, 0, c.height - 0.59, 0.20,
+            length - 0.1, 0.023, 0.045, colors.goldLight);
 
-        this.buildDoor();
-      },
-
-      wallCoordinates: function (wall, along, y) {
-        const c = HALL_CONFIG;
-
-        if (wall === "left") {
-          return {x: -c.width / 2, y: y, z: along};
-        }
-
-        if (wall === "right") {
-          return {x: c.width / 2, y: y, z: along};
-        }
-
-        if (wall === "front") {
-          return {x: along, y: y, z: -c.depth / 2};
-        }
-
-        return {x: along, y: y, z: c.depth / 2};
-      },
-
-      buildOneWall: function (wall, length, openings) {
-        const c = HALL_CONFIG;
-
-        const sideWall = wall === "left" || wall === "right";
-
-        const xCuts = [-length / 2, length / 2];
-        const yCuts = [0, c.height];
-
-        openings.forEach(opening => {
-          xCuts.push(opening.start, opening.end);
-          yCuts.push(opening.bottom, opening.top);
-        });
-
-        const xs = [...new Set(xCuts)].sort((a, b) => a - b);
-        const ys = [...new Set(yCuts)].sort((a, b) => a - b);
-
-        /*
-         * Wand in rechteckige Zellen zerlegen.
-         * Zellen innerhalb von Fenster-/Türöffnungen bleiben frei.
-         */
-        for (let ix = 0; ix < xs.length - 1; ix++) {
-          for (let iy = 0; iy < ys.length - 1; iy++) {
-            const a = xs[ix];
-            const b = xs[ix + 1];
-            const bottom = ys[iy];
-            const top = ys[iy + 1];
-
-            const middleX = (a + b) / 2;
-            const middleY = (bottom + top) / 2;
-
-            const inOpening = openings.some(opening => {
-              return (
-                middleX > opening.start &&
-                middleX < opening.end &&
-                middleY > opening.bottom &&
-                middleY < opening.top
-              );
-            });
-
-            if (inOpening) continue;
-
-            const position = this.wallCoordinates(
-              wall,
-              middleX,
-              middleY
-            );
-
-            this.box(
-              position,
-              sideWall ? c.wallThickness : b - a,
-              top - bottom,
-              sideWall ? b - a : c.wallThickness,
-              c.materials.wall
-            );
+          // Dezente senkrechte Wandgliederung.
+          for (let x = -length / 2 + 2; x < length / 2; x += 4) {
+            box(parent, x, 3.6, 0.157,
+              0.024, 5.25, 0.012, colors.wallPanel);
           }
-        }
-
-        openings
-          .filter(opening => opening.type === "window")
-          .forEach(opening => {
-            this.buildWindow(wall, opening);
-          });
-
-        // Sockelleiste; an der Eingangstür unterbrochen.
-        const door = openings.find(opening => opening.type === "door");
-
-        const baseSegments = door
-          ? [
-              [-length / 2, door.start],
-              [door.end, length / 2]
-            ]
-          : [[-length / 2, length / 2]];
-
-        baseSegments.forEach(segment => {
-          const center = (segment[0] + segment[1]) / 2;
-          const segmentLength = segment[1] - segment[0];
-
-          this.box(
-            this.wallCoordinates(wall, center, 0.12),
-            sideWall ? 0.34 : segmentLength,
-            0.24,
-            sideWall ? segmentLength : 0.34,
-            {
-              color: "#9b8b76",
-              roughness: 1
-            }
-          );
         });
       },
 
-      buildWindow: function (wall, opening) {
-        const sideWall = wall === "left" || wall === "right";
-
-        const width = opening.end - opening.start;
-        const height = opening.top - opening.bottom;
-
-        const centerAlong = (opening.start + opening.end) / 2;
-        const centerY = (opening.bottom + opening.top) / 2;
-
-        const position = this.wallCoordinates(
-          wall,
-          centerAlong,
-          centerY
-        );
-
-        const glass = createEntity("a-plane", {
-          position: position,
-          rotation: sideWall ? "0 90 0" : "0 0 0",
-          width: width - 0.08,
-          height: height - 0.08,
-          material: {
-            color: "#bfe3f0",
-            opacity: 0.22,
-            transparent: true,
-            side: "double",
-            roughness: 0.2,
-            metalness: 0.05,
-            depthWrite: false
-          }
-        }, this.el);
-
-        const frameMaterial = {
-          color: "#f5f6f3",
-          roughness: 0.8
-        };
-
-        const frameWidth = 0.07;
-
-        [opening.bottom, opening.top].forEach(y => {
-          this.box(
-            this.wallCoordinates(wall, centerAlong, y),
-            sideWall ? 0.36 : width + frameWidth,
-            frameWidth,
-            sideWall ? width + frameWidth : 0.36,
-            frameMaterial
-          );
-        });
-
-        [
-          opening.start,
-          centerAlong,
-          opening.end
-        ].forEach(along => {
-          this.box(
-            this.wallCoordinates(wall, along, centerY),
-            sideWall ? 0.36 : frameWidth,
-            height,
-            sideWall ? frameWidth : 0.36,
-            frameMaterial
-          );
-        });
-      },
-
-      buildDoor: function () {
-        const z = -HALL_CONFIG.depth / 2;
-
-        const frameMaterial = {
-          color: "#ecece4",
-          roughness: 0.85
-        };
-
-        this.box(
-          {x: -2.12, y: 1.6, z: z},
-          0.12,
-          3.2,
-          0.4,
-          frameMaterial
-        );
-
-        this.box(
-          {x: 2.12, y: 1.6, z: z},
-          0.12,
-          3.2,
-          0.4,
-          frameMaterial
-        );
-
-        this.box(
-          {x: 0, y: 3.23, z: z},
-          4.36,
-          0.12,
-          0.4,
-          frameMaterial
-        );
-
-        const pivot = createEntity("a-entity", {
-          position: {x: -2.04, y: 0, z: z},
-          rotation: "0 -70 0"
-        }, this.el);
-
-        this.box(
-          {x: 1.02, y: 1.56, z: 0},
-          2.04,
-          3.12,
-          0.09,
-          {
-            color: "#536d79",
-            roughness: 0.65,
-            metalness: 0.08
-          },
-          pivot
-        );
-
-        this.box(
-          {x: 1.02, y: 2.05, z: 0.052},
-          1.55,
-          1.4,
-          0.012,
-          {
-            color: "#b7d9e5",
-            opacity: 0.5,
-            transparent: true,
-            roughness: 0.25
-          },
-          pivot
-        );
-
-        this.box(
-          {x: 1.8, y: 1.2, z: 0.09},
-          0.2,
-          0.045,
-          0.05,
-          {
-            color: "#d4dce0",
-            metalness: 0.7,
-            roughness: 0.3
-          },
-          pivot
-        );
-
-        createEntity("a-entity", {
-          position: {x: 0, y: 3.65, z: z + 0.21},
-          text: {
-            value: "EINGANG / PARK",
-            align: "center",
-            color: "#285043",
-            width: 5
-          }
-        }, this.el);
+      rectangularTrim: function (parent, w, d, y, thickness, height, color) {
+        box(parent, 0, y, -d / 2, w + thickness, height, thickness, color);
+        box(parent, 0, y,  d / 2, w + thickness, height, thickness, color);
+        box(parent, -w / 2, y, 0, thickness, height, d, color);
+        box(parent,  w / 2, y, 0, thickness, height, d, color);
       },
 
       buildCeiling: function () {
-        const c = HALL_CONFIG;
+        const c = CONFIG;
+        const colors = c.colors;
 
-        this.box(
-          {x: 0, y: c.height + 0.09, z: 0},
-          c.width + 0.5,
-          0.18,
-          c.depth + 0.5,
-          c.materials.ceiling
+        box(this.el, 0, c.height + 0.08, 0,
+          c.width + 0.3, 0.16, c.depth + 0.3, colors.cream);
+
+        this.rectangularTrim(
+          this.el, c.width - 2.4, c.depth - 2.4,
+          c.height - 0.10, 0.12, 0.10, colors.creamDark
         );
 
-        [-10, 0, 10].forEach(x => {
-          this.box(
-            {x: x, y: c.height - 0.2, z: 0},
-            0.28,
-            0.4,
-            c.depth,
-            {
-              color: "#c5c8c5",
-              roughness: 0.9
-            }
-          );
+        this.rectangularTrim(
+          this.el, c.width - 2.8, c.depth - 2.8,
+          c.height - 0.12, 0.055, 0.065, colors.cream
+        );
 
-          [-7, 0, 7].forEach(z => {
-            this.box(
-              {x: x, y: c.height - 0.46, z: z},
-              2.8,
-              0.1,
-              0.7,
-              {
-                color: "#d7dce0",
-                roughness: 0.7
-              }
-            );
+        // Stilisiertes leuchtendes Oberlicht, ohne Außenwelt.
+        box(this.el, 0, c.height - 0.045, 0,
+          9.2, 0.035, 6.2, "#d3e8ec", {shader: "flat"});
 
-            this.box(
-              {x: x, y: c.height - 0.52, z: z},
-              2.55,
-              0.025,
-              0.52,
-              {
-                shader: "flat",
-                color: "#fff7d7"
-              }
-            );
+        this.rectangularTrim(
+          this.el, 9.5, 6.5,
+          c.height - 0.11, 0.20, 0.18, colors.creamDark
+        );
+
+        this.rectangularTrim(
+          this.el, 9.85, 6.85,
+          c.height - 0.17, 0.14, 0.12, colors.cream
+        );
+
+        this.rectangularTrim(
+          this.el, 10.1, 7.1,
+          c.height - 0.21, 0.055, 0.06, colors.goldLight
+        );
+
+        // Oberlichtsprossen.
+        [-3, -1.5, 0, 1.5, 3].forEach(x => {
+          box(this.el, x, c.height - 0.08, 0,
+            0.055, 0.06, 6.2, colors.cream);
+        });
+
+        [-1.55, 0, 1.55].forEach(z => {
+          box(this.el, 0, c.height - 0.08, z,
+            9.2, 0.06, 0.055, colors.cream);
+        });
+
+        // Schienen passend zum Museumsvorbild.
+        [-10.3, 10.3].forEach(x => {
+          box(this.el, x, c.height - 0.65, 0,
+            0.07, 0.065, c.depth - 3, colors.rail);
+
+          [-8.1, -2.7, 2.7, 8.1].forEach(z => {
+            this.lamp(x, c.height - 0.83, z,
+              x < 0 ? -55 : 55, 0);
+          });
+        });
+
+        [-6.6, 6.6].forEach(z => {
+          box(this.el, 0, c.height - 0.65, z,
+            c.width - 5, 0.065, 0.07, colors.rail);
+
+          [-11, -3.7, 3.7, 11].forEach(x => {
+            this.lamp(x, c.height - 0.83, z,
+              0, z < 0 ? 55 : -55);
           });
         });
       },
 
-      buildLighting: function () {
-        createEntity("a-entity", {
+      lamp: function (x, y, z, tiltZ, tiltX) {
+        const group = entity("a-entity", {
+          position: {x, y, z}
+        }, this.el);
+
+        box(group, 0, 0.08, 0, 0.035, 0.2, 0.035, CONFIG.colors.rail);
+
+        const head = entity("a-entity", {
+          rotation: {x: tiltX, y: 0, z: tiltZ}
+        }, group);
+
+        entity("a-cylinder", {
+          radius: 0.095,
+          height: 0.22,
+          "segments-radial": 12,
+          material: {
+            color: CONFIG.colors.rail,
+            metalness: 0.35,
+            roughness: 0.5
+          }
+        }, head);
+
+        entity("a-cylinder", {
+          position: "0 -0.115 0",
+          radius: 0.077,
+          height: 0.012,
+          "segments-radial": 12,
+          material: {
+            shader: "flat",
+            color: "#fff0bf"
+          }
+        }, head);
+
+        /*
+         * Die Leuchtflächen sind sichtbar.
+         * Nicht jede Lampe bekommt eine eigene Echtzeitlichtquelle,
+         * damit die Szene auf VR-Geräten bezahlbar bleibt.
+         */
+      },
+
+      buildLights: function () {
+        entity("a-entity", {
           light: {
             type: "ambient",
-            color: "#fff5e9",
+            color: "#fff7e6",
+            intensity: 0.7
+          }
+        }, this.el);
+
+        entity("a-entity", {
+          position: "-7 11 4",
+          light: {
+            type: "directional",
+            color: "#fff1d7",
             intensity: 0.65
           }
         }, this.el);
 
-        createEntity("a-entity", {
-          position: "-8 12 -10",
+        entity("a-entity", {
+          position: "8 10 -6",
           light: {
             type: "directional",
-            color: "#fff7eb",
-            intensity: 0.65
+            color: "#e5f2f4",
+            intensity: 0.4
           }
         }, this.el);
 
-        createEntity("a-entity", {
-          position: "8 10 10",
-          light: {
-            type: "directional",
-            color: "#d9ecff",
-            intensity: 0.3
-          }
-        }, this.el);
-
-        [-7, 0, 7].forEach(z => {
-          createEntity("a-entity", {
-            position: {x: 0, y: 6.6, z: z},
+        [-5, 5].forEach(z => {
+          entity("a-entity", {
+            position: {x: 0, y: 5.8, z},
             light: {
               type: "point",
-              color: "#fff2d5",
-              intensity: 0.5,
-              distance: 24,
+              color: "#fff0d4",
+              intensity: 0.4,
+              distance: 25,
               decay: 1
             }
           }, this.el);
         });
       },
 
-      stationPlacement: function (station) {
-        const c = HALL_CONFIG;
+      buildDoor: function () {
+        const c = CONFIG;
+        const colors = c.colors;
 
-        const halfW = c.width / 2;
-        const halfD = c.depth / 2;
+        const door = entity("a-entity", {
+          position: {x: 0, y: 0, z: -c.depth / 2 + 0.24}
+        }, this.el);
 
-        const posterInset = c.wallThickness / 2 + 0.035;
+        // Geschlossene, kleinere Doppeltür.
+        box(door, 0, 1.45, 0,
+          2.35, 2.9, 0.12, colors.wood);
 
-        if (station.wall === "left") {
-          return {
-            poster: {
-              x: -halfW + posterInset,
-              y: c.posterCenterY,
-              z: station.along
-            },
-            rotation: "0 90 0",
-            model: {
-              x: -halfW + c.modelWallDistance,
-              y: c.modelCenterY,
-              z: station.along
-            }
-          };
-        }
+        [-0.58, 0.58].forEach(x => {
+          [0.73, 2.08].forEach(y => {
+            box(door, x, y, 0.073,
+              0.91, 1.06, 0.035, "#684530");
 
-        if (station.wall === "right") {
-          return {
-            poster: {
-              x: halfW - posterInset,
-              y: c.posterCenterY,
-              z: station.along
-            },
-            rotation: "0 -90 0",
-            model: {
-              x: halfW - c.modelWallDistance,
-              y: c.modelCenterY,
-              z: station.along
-            }
-          };
-        }
+            // Goldene Füllungsumrandung.
+            goldBox(door, x, y - 0.54, 0.098, 0.96, 0.025, 0.018);
+            goldBox(door, x, y + 0.54, 0.098, 0.96, 0.025, 0.018);
+            goldBox(door, x - 0.47, y, 0.098, 0.025, 1.08, 0.018);
+            goldBox(door, x + 0.47, y, 0.098, 0.025, 1.08, 0.018);
+          });
+        });
 
-        if (station.wall === "front") {
-          return {
-            poster: {
-              x: station.along,
-              y: c.posterCenterY,
-              z: -halfD + posterInset
-            },
-            rotation: "0 0 0",
-            model: {
-              x: station.along,
-              y: c.modelCenterY,
-              z: -halfD + c.modelWallDistance
-            }
-          };
-        }
+        goldBox(door, 0, 1.45, 0.082, 0.025, 2.86, 0.025);
+
+        [-0.12, 0.12].forEach(x => {
+          goldBox(door, x, 1.35, 0.15, 0.04, 0.22, 0.065);
+        });
+
+        // Edle Türzarge.
+        [-1.27, 1.27].forEach(x => {
+          box(door, x, 1.5, 0.04,
+            0.17, 3, 0.20, colors.cream);
+          goldBox(door, x, 1.5, 0.15,
+            0.032, 2.98, 0.025, colors.goldLight);
+        });
+
+        box(door, 0, 3.03, 0.04, 2.72, 0.18, 0.2, colors.cream);
+        box(door, 0, 3.17, 0.04, 2.9, 0.10, 0.27, colors.creamDark);
+        goldBox(door, 0, 3.12, 0.18, 2.76, 0.035, 0.04);
+
+        entity("a-entity", {
+          position: "0 3.55 0.10",
+          text: {
+            value: "CHEMIEMUSEUM",
+            align: "center",
+            color: "#4c614f",
+            width: 4
+          }
+        }, door);
+      },
+
+      placement: function (station) {
+        const c = CONFIG;
+        const inset = c.wallThickness / 2 + 0.055;
+
+        if (station.wall === "left") return {
+          poster: {x: -c.width / 2 + inset, y: c.posterY, z: station.along},
+          model: {x: -c.width / 2 + c.modelDistance, y: c.modelY, z: station.along},
+          rotation: "0 90 0"
+        };
+
+        if (station.wall === "right") return {
+          poster: {x: c.width / 2 - inset, y: c.posterY, z: station.along},
+          model: {x: c.width / 2 - c.modelDistance, y: c.modelY, z: station.along},
+          rotation: "0 -90 0"
+        };
+
+        if (station.wall === "front") return {
+          poster: {x: station.along, y: c.posterY, z: -c.depth / 2 + inset},
+          model: {x: station.along, y: c.modelY, z: -c.depth / 2 + c.modelDistance},
+          rotation: "0 0 0"
+        };
 
         return {
-          poster: {
-            x: station.along,
-            y: c.posterCenterY,
-            z: halfD - posterInset
-          },
-          rotation: "0 180 0",
-          model: {
-            x: station.along,
-            y: c.modelCenterY,
-            z: halfD - c.modelWallDistance
-          }
+          poster: {x: station.along, y: c.posterY, z: c.depth / 2 - inset},
+          model: {x: station.along, y: c.modelY, z: c.depth / 2 - c.modelDistance},
+          rotation: "0 180 0"
         };
       },
 
-      buildStations: function () {
-        STATIONS.forEach((station, index) => {
-          this.buildStation(station, index);
-        });
+      frameLayer: function (parent, offset, thickness, depth, z, color) {
+        const w = CONFIG.posterWidth;
+        const h = CONFIG.posterHeight;
+
+        goldBox(parent, 0, -(h / 2 + offset), z,
+          w + 2 * offset + thickness, thickness, depth, color);
+        goldBox(parent, 0, h / 2 + offset, z,
+          w + 2 * offset + thickness, thickness, depth, color);
+
+        goldBox(parent, -(w / 2 + offset), 0, z,
+          thickness, h + 2 * offset, depth, color);
+        goldBox(parent, w / 2 + offset, 0, z,
+          thickness, h + 2 * offset, depth, color);
       },
 
       buildStation: function (station, index) {
-        const c = HALL_CONFIG;
-        const placement = this.stationPlacement(station);
+        const c = CONFIG;
+        const colors = c.colors;
+        const p = this.placement(station);
 
-        const posterGroup = createEntity("a-entity", {
-          position: placement.poster,
-          rotation: placement.rotation
+        const frame = entity("a-entity", {
+          position: p.poster,
+          rotation: p.rotation
         }, this.el);
 
-        this.box(
-          {x: 0, y: 0, z: 0},
-          c.posterWidth + 0.14,
-          c.posterHeight + 0.14,
-          0.045,
-          {
-            color: "#394b55",
-            roughness: 0.8
-          },
-          posterGroup
-        );
+        box(frame, 0, 0, 0,
+          c.posterWidth + 0.36,
+          c.posterHeight + 0.36,
+          0.055, colors.goldDark);
 
-        const posterMaterial = {
-          shader: "flat",
-          color: "#f4f5f1",
-          side: "front"
-        };
-
-        if (station.slide) {
-          posterMaterial.src = station.slide;
-        }
-
-        createEntity("a-plane", {
-          position: "0 0 0.03",
+        entity("a-plane", {
+          position: "0 0 0.04",
           width: c.posterWidth,
           height: c.posterHeight,
-          material: posterMaterial
-        }, posterGroup);
+          material: Object.assign({
+            shader: "flat",
+            color: "#fbf8ee"
+          }, station.slide ? {src: station.slide} : {})
+        }, frame);
+
+        // Mehrere Profilstufen statt eines flachen Goldrahmens.
+        this.frameLayer(frame, 0.025, 0.045, 0.075, 0.065, colors.goldLight);
+        this.frameLayer(frame, 0.075, 0.07, 0.095, 0.063, colors.gold);
+        this.frameLayer(frame, 0.13, 0.04, 0.065, 0.04, colors.goldDark);
+        this.frameLayer(frame, 0.165, 0.045, 0.075, 0.06, colors.goldLight);
 
         if (!station.slide) {
-          createEntity("a-entity", {
-            position: "0 0.27 0.045",
+          entity("a-entity", {
+            position: "0 0.20 0.047",
             text: {
               value: station.title,
               align: "center",
-              color: "#203948",
-              width: 6.8,
+              color: "#3d5345",
+              width: 6.5,
               wrapCount: 28
             }
-          }, posterGroup);
+          }, frame);
 
-          createEntity("a-entity", {
-            position: "0 -0.38 0.046",
+          entity("a-entity", {
+            position: "0 -0.40 0.048",
             text: {
               value: "Vorlesungsfolie 16:9",
               align: "center",
-              color: "#73828b",
-              width: 4.2
+              color: "#97845e",
+              width: 4.1
             }
-          }, posterGroup);
+          }, frame);
         }
 
-        const root = createEntity("a-entity", {
-          id: "station-model-" + (index + 1),
+        // Kleine Wandbeschriftung unter dem Bilderrahmen.
+        box(frame, 0, -1.72, 0.015,
+          1.8, 0.22, 0.03, colors.cream);
+
+        entity("a-entity", {
+          position: "0 -1.72 0.038",
+          text: {
+            value: String(index + 1).padStart(2, "0") + "  |  " + station.title,
+            align: "center",
+            color: "#405146",
+            width: 1.8,
+            wrapCount: 32
+          }
+        }, frame);
+
+        this.buildPedestal(station, p);
+
+        const root = entity("a-entity", {
+          id: "model-" + (index + 1),
           class: "interactable",
-          position: placement.model
+          position: p.model
         }, this.el);
 
         root.dataset.title = station.title;
-
         root.homePosition = new THREE.Vector3(
-          placement.model.x,
-          placement.model.y,
-          placement.model.z
+          p.model.x, p.model.y, p.model.z
         );
-
         root.modelReady = false;
 
-        const body = createEntity("a-entity", {
+        const body = entity("a-entity", {
           class: "manip-body"
         }, root);
 
-        /*
-         * Hitbox wird nicht sichtbar gerendert.
-         * Ihre Geometrie bleibt für die Greifprüfung verfügbar.
-         */
-        createEntity("a-box", {
+        entity("a-box", {
           class: "hitbox",
-          width: c.modelTargetSize + c.hitboxPadding,
-          height: c.modelTargetSize + c.hitboxPadding,
-          depth: c.modelTargetSize + c.hitboxPadding,
+          width: c.modelSize + c.hitboxPadding,
+          height: c.modelSize + c.hitboxPadding,
+          depth: c.modelSize + c.hitboxPadding,
           visible: false
         }, body);
 
         if (station.model) {
-          const visual = createEntity("a-entity", {
+          const visual = entity("a-entity", {
             class: "model-visual",
-            "normalize-model": {
-              targetSize: c.modelTargetSize,
-              padding: c.hitboxPadding
-            }
+            "normalize-model": ""
           }, body);
 
-          // Listener der Normalisierung zuerst installieren.
           visual.setAttribute("gltf-model", station.model);
         } else {
-          createEntity("a-sphere", {
+          entity("a-sphere", {
             class: "model-visual",
-            radius: c.modelTargetSize / 2,
+            radius: c.modelSize / 2,
             material: {
-              color: "#6bb9cf",
-              metalness: 0.1,
-              roughness: 0.45
+              color: "#79aa98",
+              roughness: 0.4,
+              metalness: 0.12
             }
           }, body);
 
           root.modelReady = true;
         }
 
-        createEntity("a-entity", {
-          position: "0 -0.45 0",
-          billboard: "",
+        root.setAttribute("manipulable", "");
+      },
+
+      buildPedestal: function (station, p) {
+        const c = CONFIG;
+        const colors = c.colors;
+
+        PEDESTALS.push({x: p.model.x, z: p.model.z});
+
+        const pedestal = entity("a-entity", {
+          position: {x: p.model.x, y: 0, z: p.model.z},
+          rotation: p.rotation
+        }, this.el);
+
+        // Goldsockel.
+        goldBox(pedestal, 0, 0.065, 0,
+          0.90, 0.13, 0.90, colors.goldDark);
+        goldBox(pedestal, 0, 0.145, 0,
+          0.85, 0.04, 0.85, colors.goldLight);
+
+        // Cremefarbener Korpus.
+        box(pedestal, 0, 0.50, 0,
+          0.76, 0.68, 0.76, colors.cream);
+
+        // Zurückhaltende Zierprofile auf allen vier Seiten.
+        [0, 90, 180, 270].forEach(angle => {
+          const side = entity("a-entity", {
+            rotation: {x: 0, y: angle, z: 0}
+          }, pedestal);
+
+          box(side, 0, 0.50, 0.385,
+            0.58, 0.47, 0.012, "#e4dcc8");
+
+          goldBox(side, -0.30, 0.50, 0.398, 0.015, 0.49, 0.015);
+          goldBox(side,  0.30, 0.50, 0.398, 0.015, 0.49, 0.015);
+          goldBox(side, 0, 0.255, 0.398, 0.61, 0.015, 0.015);
+          goldBox(side, 0, 0.745, 0.398, 0.61, 0.015, 0.015);
+        });
+
+        goldBox(pedestal, 0, 0.855, 0,
+          0.84, 0.055, 0.84, colors.gold);
+        box(pedestal, 0, 0.90, 0,
+          0.90, 0.04, 0.90, colors.pedestalTop,
+          {roughness: 0.4});
+
+        // Festes Museumsschild; bewegt sich nicht mit dem Modell.
+        goldBox(pedestal, 0, 0.63, 0.412,
+          0.52, 0.17, 0.025, colors.goldDark);
+
+        entity("a-entity", {
+          position: "0 0.63 0.428",
           text: {
             value: station.title,
             align: "center",
-            color: "#233d4c",
-            width: 1.8,
+            color: "#f5e6bc",
+            width: 0.65,
             wrapCount: 22
           }
-        }, root);
-
-        // Erst nach dem Aufbau der Kinder aktivieren.
-        root.setAttribute("manipulable", {
-          minScale: 0.02,
-          maxScale: 0
-        });
-      },
-
-      buildInstructions: function () {
-        const panel = createEntity("a-entity", {
-          position: "0 1.85 4"
-        }, this.el);
-
-        createEntity("a-plane", {
-          width: 3.4,
-          height: 1.65,
-          material: {
-            shader: "flat",
-            color: "#173343",
-            side: "double"
-          }
-        }, panel);
-
-        createEntity("a-entity", {
-          position: "0 0.53 0.015",
-          text: {
-            value: "VR-CHEMIEHALLE",
-            align: "center",
-            color: "#ffffff",
-            width: 4.2
-          }
-        }, panel);
-
-        createEntity("a-entity", {
-          position: "0 -0.05 0.02",
-          text: {
-            value:
-              "Links: Stick zum Laufen\n" +
-              "Rechts: Stick vor / Mitte = Teleport\n" +
-              "Controller dabei zum Boden richten\n" +
-              "Grip: greifen, drehen, mit 2 Haenden skalieren\n" +
-              "Trigger: Oberflaechenpunkt markieren\n" +
-              "A / X: letztes Modell zuruecksetzen\n" +
-              "B / Y: alle Modelle zuruecksetzen",
-            align: "center",
-            color: "#d7edf7",
-            width: 3.7,
-            wrapCount: 54,
-            lineHeight: 55
-          }
-        }, panel);
+        }, pedestal);
       }
     });
 
     /*
      * ============================================================
-     * AUSSENANLAGE: HIMMEL, WOLKEN, WEGE UND BÄUME
-     * ============================================================
-     */
-
-    AFRAME.registerComponent("park-exterior", {
-      init: function () {
-        this.buildGround();
-        this.buildPaths();
-        this.buildTrees();
-        this.buildClouds();
-      },
-
-      buildGround: function () {
-        createEntity("a-plane", {
-          position: "0 -0.035 0",
-          rotation: "-90 0 0",
-          width: 180,
-          height: 180,
-          material: {
-            color: "#75a66b",
-            roughness: 1,
-            side: "double"
-          }
-        }, this.el);
-      },
-
-      buildPaths: function () {
-        const entranceZ = -HALL_CONFIG.depth / 2;
-
-        createEntity("a-plane", {
-          position: {
-            x: 0,
-            y: -0.024,
-            z: entranceZ - 27.5
-          },
-          rotation: "-90 0 0",
-          width: 4.2,
-          height: 55,
-          material: {
-            color: "#c7c1ac",
-            roughness: 1,
-            side: "double"
-          }
-        }, this.el);
-
-        createEntity("a-plane", {
-          position: "0 -0.022 -34",
-          rotation: "-90 0 0",
-          width: 46,
-          height: 3,
-          material: {
-            color: "#c7c1ac",
-            roughness: 1,
-            side: "double"
-          }
-        }, this.el);
-      },
-
-      buildTree: function (x, z, scale, color) {
-        const tree = createEntity("a-entity", {
-          position: {x: x, y: -0.035, z: z},
-          scale: {x: scale, y: scale, z: scale}
-        }, this.el);
-
-        createEntity("a-cylinder", {
-          position: "0 1.45 0",
-          radius: 0.21,
-          height: 2.9,
-          "segments-radial": 8,
-          material: {
-            color: "#74503c",
-            roughness: 1
-          }
-        }, tree);
-
-        [
-          {x: 0, y: 3.8, z: 0, r: 1.55},
-          {x: -0.75, y: 3.35, z: 0.15, r: 1.25},
-          {x: 0.75, y: 3.4, z: -0.15, r: 1.25}
-        ].forEach(crown => {
-          createEntity("a-sphere", {
-            position: {
-              x: crown.x,
-              y: crown.y,
-              z: crown.z
-            },
-            radius: crown.r,
-            "segments-width": 10,
-            "segments-height": 7,
-            material: {
-              color: color,
-              roughness: 1,
-              flatShading: true
-            }
-          }, tree);
-        });
-      },
-
-      buildTrees: function () {
-        const positions = [
-          [-8, -20], [8, -20],
-          [-11, -29], [11, -29],
-          [-8, -41], [8, -41],
-          [-10, -53], [10, -53],
-
-          [-23, -20], [23, -20],
-          [-29, -30], [29, -30],
-          [-22, -43], [22, -43],
-
-          [-24, -5], [24, -5],
-          [-28, 7], [28, 7],
-          [-23, 19], [23, 19],
-
-          [-13, 23], [0, 26], [13, 23],
-          [-32, 23], [32, 23],
-          [-36, -12], [36, -12]
-        ];
-
-        const colors = ["#3f7e4d", "#528e52", "#669956"];
-
-        positions.forEach((position, index) => {
-          this.buildTree(
-            position[0],
-            position[1],
-            0.85 + (index % 5) * 0.1,
-            colors[index % colors.length]
-          );
-        });
-      },
-
-      buildClouds: function () {
-        const clouds = [
-          [-35, 18, -38, 1.3],
-          [12, 20, -47, 1.6],
-          [38, 17, -15, 1.1],
-          [-40, 19, 12, 1.4],
-          [20, 18, 34, 1.5],
-          [-8, 21, 42, 1.2]
-        ];
-
-        clouds.forEach(cloud => {
-          const group = createEntity("a-entity", {
-            position: {
-              x: cloud[0],
-              y: cloud[1],
-              z: cloud[2]
-            },
-            scale: {
-              x: cloud[3],
-              y: cloud[3],
-              z: cloud[3]
-            }
-          }, this.el);
-
-          [
-            [-2, 0, 0, 2.8, 0.8, 1.3],
-            [0, 0.25, 0, 3.2, 1.1, 1.6],
-            [2.4, 0, 0.2, 2.7, 0.75, 1.3]
-          ].forEach(part => {
-            createEntity("a-sphere", {
-              position: {
-                x: part[0],
-                y: part[1],
-                z: part[2]
-              },
-              scale: {
-                x: part[3],
-                y: part[4],
-                z: part[5]
-              },
-              radius: 1,
-              "segments-width": 12,
-              "segments-height": 8,
-              material: {
-                shader: "flat",
-                color: "#ffffff"
-              }
-            }, group);
-          });
-        });
-      }
-    });
-
-    /*
-     * ============================================================
-     * SITZUNGSENDE UND STATUS
+     * SITZUNGSENDE / DIAGNOSE
      * ============================================================
      */
 
     AFRAME.registerComponent("session-cleanup", {
       init: function () {
-        this.onEnter = () => {
-          const panel = document.getElementById("desktop-panel");
-
-          if (panel) panel.classList.add("in-vr");
-
-          setStatus("VR-Sitzung aktiv.");
+        this.enter = () => {
+          document.getElementById("panel").classList.add("in-vr");
         };
 
-        this.onExit = () => {
-          releaseAllHands(this.el);
+        this.exit = () => {
+          releaseHands(this.el);
 
           this.el.querySelectorAll("[controller-tools]").forEach(hand => {
             const tools = hand.components["controller-tools"];
-
-            if (tools) tools.onDisconnect();
+            if (tools) tools.disconnect();
           });
 
-          const panel = document.getElementById("desktop-panel");
-
-          if (panel) panel.classList.remove("in-vr");
-
-          setStatus("VR-Sitzung beendet. Desktopsteuerung: WASD.");
+          document.getElementById("panel").classList.remove("in-vr");
         };
 
-        this.el.addEventListener("enter-vr", this.onEnter);
-        this.el.addEventListener("exit-vr", this.onExit);
+        this.el.addEventListener("enter-vr", this.enter);
+        this.el.addEventListener("exit-vr", this.exit);
       },
 
       remove: function () {
-        this.el.removeEventListener("enter-vr", this.onEnter);
-        this.el.removeEventListener("exit-vr", this.onExit);
+        this.el.removeEventListener("enter-vr", this.enter);
+        this.el.removeEventListener("exit-vr", this.exit);
       }
     });
 
-    /*
-     * Diagnose auf Wunsch in der Browserkonsole:
-     *
-     * xrDiagnose()
-     *
-     * Zeigt A-Frame-/Three-Version, Controllerprofile,
-     * Gamepad-Mapping, Achsen und Buttons.
-     */
-
     window.xrDiagnose = function () {
-      const scene = getScene();
-
-      const xr = scene && scene.renderer && scene.renderer.xr;
+      const s = scene();
+      const xr = s && s.renderer && s.renderer.xr;
       const session = xr && xr.getSession();
 
       console.log("A-Frame:", AFRAME.version);
       console.log("Three.js:", THREE.REVISION);
       console.log("Sicherer Kontext:", window.isSecureContext);
-      console.log("VR-Modus:", scene && scene.is("vr-mode"));
       console.log("XR-Sitzung:", session);
 
-      if (!session) {
-        console.warn("Keine aktive WebXR-Sitzung.");
-        return;
-      }
+      if (!session) return;
 
-      const rows = Array.from(session.inputSources).map(source => ({
+      console.table(Array.from(session.inputSources).map(source => ({
         hand: source.handedness,
-        mode: source.targetRayMode,
         profiles: Array.from(source.profiles).join(", "),
-        mapping: source.gamepad ? source.gamepad.mapping : "kein Gamepad",
+        mapping: source.gamepad ? source.gamepad.mapping : "",
         axes: source.gamepad
-          ? Array.from(source.gamepad.axes)
-              .map(value => value.toFixed(3))
-              .join(", ")
+          ? Array.from(source.gamepad.axes).map(v => v.toFixed(3)).join(", ")
           : "",
         buttons: source.gamepad
           ? Array.from(source.gamepad.buttons)
-              .map((button, index) => index + ":" + button.value.toFixed(2))
-              .join(" ")
+              .map((b, i) => i + ":" + b.value.toFixed(2)).join(" ")
           : ""
-      }));
-
-      console.table(rows);
+      })));
     };
 
-    document.addEventListener("DOMContentLoaded", function () {
-      document.getElementById("reset-last").addEventListener(
-        "click",
-        resetLastModel
-      );
+    document.addEventListener("DOMContentLoaded", () => {
+      document.getElementById("reset-last").onclick = resetLast;
+      document.getElementById("reset-all").onclick = resetAll;
+      document.getElementById("clear-markers").onclick = clearMarkers;
 
-      document.getElementById("reset-all").addEventListener(
-        "click",
-        resetAllModels
-      );
+      const s = scene();
 
-      document.getElementById("clear-markers").addEventListener(
-        "click",
-        clearAllMarkers
-      );
-
-      const scene = getScene();
-
-      scene.addEventListener("loaded", function () {
-        const currentStatus = document.getElementById("status");
-
-        if (
-          currentStatus &&
-          currentStatus.textContent.includes("Modell fehlt")
-        ) {
-          return;
-        }
+      function ready() {
+        if (window.modelLoadFailed) return;
 
         if (!window.isSecureContext) {
-          setStatus(
-            "Kein sicherer Kontext: WebXR benötigt HTTPS oder localhost."
-          );
+          status("WebXR benötigt HTTPS oder localhost.");
         } else if (!navigator.xr) {
-          setStatus(
-            "Dieser Browser stellt WebXR nicht bereit. " +
-            "Desktopsteuerung ist weiterhin möglich."
-          );
+          status("WebXR nicht verfügbar. Desktop: WASD, Q/E und Maus.");
         } else {
-          setStatus(
-            "Bereit. VR über den Headset-Button unten rechts starten."
-          );
+          status("Bereit. VR über den Headset-Button unten rechts starten.");
         }
-      });
+      }
+
+      if (s.hasLoaded) ready();
+      else s.addEventListener("loaded", ready, {once: true});
     });
   </script>
 </head>
 
 <body>
-  <div id="desktop-panel">
-    <h2>VR-Chemiehalle</h2>
-
-    <p>
-      <strong>Desktop:</strong>
-      WASD oder Pfeiltasten zum Laufen, Maus zum Umschauen.
-    </p>
+  <div id="panel">
+    <h2>VR-Chemiemuseum</h2>
 
     <p>
       <strong>VR:</strong>
-      linker Stick zum Laufen.
-      Rechten Stick nach vorne halten, Controller zum Boden richten
-      und Stick wieder loslassen, um zu teleportieren.
+      linker Stick zum Laufen; rechter Stick nach links/rechts
+      zum Drehen in 45°-Schritten.
+    </p>
+
+    <p>
+      <strong>Teleport:</strong>
+      rechten Stick nach vorne halten, Controller zum Boden richten
+      und Stick wieder in die Mitte lassen.
     </p>
 
     <p>
       <strong>Modelle:</strong>
       mit Grip in Modellnähe greifen.
       Eine Hand bewegt und dreht, zwei Hände skalieren.
-      Trigger setzt einen pinken Oberflächenmarker.
+      Trigger markiert einen Oberflächenpunkt.
     </p>
 
     <p>
       <strong>Reset:</strong>
-      A/X setzt das zuletzt ausgewählte Modell zurück;
-      B/Y setzt alle Modelle zurück.
+      A/X: letztes ausgewähltes Modell.
+      B/Y: alle Modelle.
+    </p>
+
+    <p>
+      <strong>Desktop:</strong>
+      WASD/Pfeiltasten zum Laufen, Q/E zum Drehen,
+      Maus zum Umschauen.
     </p>
 
     <div class="buttons">
-      <button id="reset-last" type="button">
-        Letztes Modell zurücksetzen
-      </button>
-
-      <button id="reset-all" type="button">
-        Alle zurücksetzen
-      </button>
-
-      <button id="clear-markers" type="button">
-        Marker löschen
-      </button>
+      <button id="reset-last" type="button">Letztes zurücksetzen</button>
+      <button id="reset-all" type="button">Alle zurücksetzen</button>
+      <button id="clear-markers" type="button">Marker löschen</button>
     </div>
 
-    <p id="status">Halle und Modelle werden geladen …</p>
+    <p id="status">Museum wird geladen …</p>
   </div>
 
+  <!-- Textur vor dem Aufbau der A-Frame-Szene erzeugen. -->
+  <canvas
+    id="parquet"
+    width="1024"
+    height="1024"
+    style="display:none"
+  ></canvas>
+
+  <script>
+    makeParquet();
+  </script>
+
   <a-scene
+    background="color: #eee7d5"
     renderer="antialias: true; colorManagement: true"
-    background="color: #88c8f0"
     vr-mode-ui="enabled: true"
     webxr="referenceSpaceType: local-floor; optionalFeatures: bounded-floor"
     xr-ray-provider
     session-cleanup
   >
     <a-assets timeout="30000">
-      <a-asset-item
-        id="diamant"
-        src="Diamant.glb"
-      ></a-asset-item>
-
-      <a-asset-item
-        id="graphit"
-        src="Graphit.glb"
-      ></a-asset-item>
-
-      <a-asset-item
-        id="eis"
-        src="Eis2.glb"
-      ></a-asset-item>
-
-      <a-asset-item
-        id="mgcl2"
-        src="MgCl2.glb"
-      ></a-asset-item>
-
-      <a-asset-item
-        id="imidazol"
-        src="Imidazol.glb"
-      ></a-asset-item>
-
-      <a-asset-item
-        id="bodipy"
-        src="BODIPY.glb"
-      ></a-asset-item>
+      <a-asset-item id="diamant" src="Diamant.glb"></a-asset-item>
+      <a-asset-item id="graphit" src="Graphit.glb"></a-asset-item>
+      <a-asset-item id="eis" src="Eis2.glb"></a-asset-item>
+      <a-asset-item id="mgcl2" src="MgCl2.glb"></a-asset-item>
+      <a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
+      <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
     </a-assets>
 
-    <a-sky color="#88c8f0"></a-sky>
-
-    <a-entity id="park" park-exterior></a-entity>
-
-    <a-entity id="chemistryHall" chemistry-hall></a-entity>
+    <a-entity id="museum" museum></a-entity>
 
     <a-entity
       id="rig"
-      position="0 0 7.5"
-      vr-navigation="speed: 1.2; desktopSpeed: 2.2; deadzone: 0.18"
+      position="0 0 6"
+      navigation="speed: 3; desktopSpeed: 4; snapAngle: 45; deadzone: 0.18"
     >
       <a-entity
         id="camera"
-        camera="near: 0.02; far: 220"
+        camera="near: 0.02; far: 100"
         position="0 1.6 0"
         look-controls="pointerLockEnabled: false"
       ></a-entity>
 
       <a-entity
         id="leftHand"
-        hand-controls="hand: left; handModelStyle: lowPoly; color: #d6e5ef"
-        hand-grabber="handRadius: 0.12"
-        controller-tools="hand: left; maxDistance: 25"
+        hand-controls="hand: left; handModelStyle: lowPoly; color: #d6e5df"
+        hand-grabber
+        controller-tools="hand: left"
       ></a-entity>
 
       <a-entity
         id="rightHand"
-        hand-controls="hand: right; handModelStyle: lowPoly; color: #d6e5ef"
-        hand-grabber="handRadius: 0.12"
-        controller-tools="hand: right; maxDistance: 25"
+        hand-controls="hand: right; handModelStyle: lowPoly; color: #d6e5df"
+        hand-grabber
+        controller-tools="hand: right"
       ></a-entity>
     </a-entity>
   </a-scene>
