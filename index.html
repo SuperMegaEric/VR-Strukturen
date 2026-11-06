@@ -1,18 +1,269 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>VR Moleküle</title>
 
-<!-- Scripts einbinden -->
+<!-- A-Frame + Bewegung -->
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.0.0/dist/aframe-extras.min.js"></script>
-<script src="https://unpkg.com/super-hands@3.0.4/dist/super-hands.min.js"></script>
 
+<script>
+AFRAME.registerComponent('billboard', {
+  init: function () {
+    this.cameraWorldPos = new THREE.Vector3();
+    this.selfWorldPos = new THREE.Vector3();
+  },
+
+  tick: function () {
+    const scene = this.el.sceneEl;
+    if (!scene || !scene.camera) return;
+
+    scene.camera.getWorldPosition(this.cameraWorldPos);
+    this.el.object3D.getWorldPosition(this.selfWorldPos);
+
+    // Nur horizontal zur Kamera drehen, damit Text aufrecht bleibt.
+    this.cameraWorldPos.y = this.selfWorldPos.y;
+    this.el.object3D.lookAt(this.cameraWorldPos);
+  }
+});
+
+AFRAME.registerComponent('manipulable', {
+  schema: {
+    minScale: { type: 'number', default: 0.45 },
+    maxScale: { type: 'number', default: 3.0 }
+  },
+
+  init: function () {
+    this.activeHands = [];
+
+    // Nur das Modell + die Hitbox skalieren, nicht den Text.
+    this.bodyEl = this.el.querySelector('.manip-body') || this.el;
+    this.scaleObject = this.bodyEl.object3D;
+
+    this.grabOffsetWorld = new THREE.Vector3();
+    this.midpointOffsetWorld = new THREE.Vector3();
+    this.initialScale = new THREE.Vector3(1, 1, 1);
+    this.tempHand1 = new THREE.Vector3();
+    this.tempHand2 = new THREE.Vector3();
+    this.tempObject = new THREE.Vector3();
+    this.tempMidpoint = new THREE.Vector3();
+    this.tempLocal = new THREE.Vector3();
+
+    this.initialTwoHandDistance = 0.001;
+  },
+
+  startGrab: function (handEl) {
+    if (this.activeHands.indexOf(handEl) !== -1) return;
+    if (this.activeHands.length >= 2) return;
+
+    this.activeHands.push(handEl);
+
+    const handGrabber = handEl.components['hand-grabber'];
+    if (handGrabber) {
+      handGrabber.grabbing = this.el;
+    }
+
+    // Eine Hand: Objekt an die Hand koppeln.
+    if (this.activeHands.length === 1) {
+      handEl.object3D.getWorldPosition(this.tempHand1);
+      this.el.object3D.getWorldPosition(this.tempObject);
+      this.grabOffsetWorld.copy(this.tempObject).sub(this.tempHand1);
+      return;
+    }
+
+    // Zwei Hände: Startzustand für Skalierung merken.
+    if (this.activeHands.length === 2) {
+      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
+      this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
+      this.el.object3D.getWorldPosition(this.tempObject);
+
+      this.initialTwoHandDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
+      this.initialScale.copy(this.scaleObject.scale);
+
+      this.tempMidpoint.copy(this.tempHand1).add(this.tempHand2).multiplyScalar(0.5);
+      this.midpointOffsetWorld.copy(this.tempObject).sub(this.tempMidpoint);
+    }
+  },
+
+  endGrab: function (handEl) {
+    const index = this.activeHands.indexOf(handEl);
+    if (index === -1) return;
+
+    this.activeHands.splice(index, 1);
+
+    const handGrabber = handEl.components['hand-grabber'];
+    if (handGrabber && handGrabber.grabbing === this.el) {
+      handGrabber.grabbing = null;
+    }
+
+    // Wenn nach Loslassen noch eine Hand hält, neuen Offset setzen.
+    if (this.activeHands.length === 1) {
+      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
+      this.el.object3D.getWorldPosition(this.tempObject);
+      this.grabOffsetWorld.copy(this.tempObject).sub(this.tempHand1);
+    }
+  },
+
+  tick: function () {
+    if (this.activeHands.length === 0) return;
+
+    // Eine Hand -> bewegen.
+    if (this.activeHands.length === 1) {
+      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
+      this.tempObject.copy(this.tempHand1).add(this.grabOffsetWorld);
+      this.setWorldPosition(this.tempObject);
+      return;
+    }
+
+    // Zwei Hände -> skalieren + Mittelpunkt folgen.
+    if (this.activeHands.length === 2) {
+      this.activeHands[0].object3D.getWorldPosition(this.tempHand1);
+      this.activeHands[1].object3D.getWorldPosition(this.tempHand2);
+
+      const currentDistance = Math.max(this.tempHand1.distanceTo(this.tempHand2), 0.001);
+      const factor = currentDistance / this.initialTwoHandDistance;
+      const desiredScale = THREE.MathUtils.clamp(
+        this.initialScale.x * factor,
+        this.data.minScale,
+        this.data.maxScale
+      );
+
+      this.scaleObject.scale.set(desiredScale, desiredScale, desiredScale);
+
+      this.tempMidpoint.copy(this.tempHand1).add(this.tempHand2).multiplyScalar(0.5);
+      this.tempObject.copy(this.tempMidpoint).add(this.midpointOffsetWorld);
+      this.setWorldPosition(this.tempObject);
+    }
+  },
+
+  setWorldPosition: function (worldPosition) {
+    const parent = this.el.object3D.parent;
+    if (!parent) {
+      this.el.object3D.position.copy(worldPosition);
+      return;
+    }
+
+    this.tempLocal.copy(worldPosition);
+    parent.worldToLocal(this.tempLocal);
+    this.el.object3D.position.copy(this.tempLocal);
+  }
+});
+
+AFRAME.registerComponent('hand-grabber', {
+  schema: {
+    hand: { type: 'string', default: 'left' },
+    handRadius: { type: 'number', default: 0.23 },
+    grabEvents: { type: 'string', default: 'gripdown,triggerdown,pinchstarted' },
+    releaseEvents: { type: 'string', default: 'gripup,triggerup,pinchended' }
+  },
+
+  init: function () {
+    this.grabbing = null;
+
+    this.worldHandPos = new THREE.Vector3();
+    this.closestPoint = new THREE.Vector3();
+    this.bounds = new THREE.Box3();
+
+    this.onGrabStart = this.onGrabStart.bind(this);
+    this.onGrabEnd = this.onGrabEnd.bind(this);
+
+    this.grabEventList = this.data.grabEvents
+      .split(',')
+      .map(function (name) { return name.trim(); })
+      .filter(Boolean);
+
+    this.releaseEventList = this.data.releaseEvents
+      .split(',')
+      .map(function (name) { return name.trim(); })
+      .filter(Boolean);
+
+    this.grabEventList.forEach((eventName) => {
+      this.el.addEventListener(eventName, this.onGrabStart);
+    });
+
+    this.releaseEventList.forEach((eventName) => {
+      this.el.addEventListener(eventName, this.onGrabEnd);
+    });
+  },
+
+  remove: function () {
+    this.grabEventList.forEach((eventName) => {
+      this.el.removeEventListener(eventName, this.onGrabStart);
+    });
+
+    this.releaseEventList.forEach((eventName) => {
+      this.el.removeEventListener(eventName, this.onGrabEnd);
+    });
+  },
+
+  onGrabStart: function () {
+    if (this.grabbing) return;
+
+    const target = this.findClosestTarget();
+    if (!target) return;
+
+    const manip = target.components.manipulable;
+    if (!manip) return;
+
+    manip.startGrab(this.el);
+  },
+
+  onGrabEnd: function () {
+    if (!this.grabbing) return;
+
+    const manip = this.grabbing.components.manipulable;
+    if (manip) {
+      manip.endGrab(this.el);
+    } else {
+      this.grabbing = null;
+    }
+  },
+
+  findClosestTarget: function () {
+    const candidates = this.el.sceneEl.querySelectorAll('.interactable');
+    this.el.object3D.getWorldPosition(this.worldHandPos);
+
+    let bestTarget = null;
+    let bestDistance = Infinity;
+
+    for (let i = 0; i < candidates.length; i++) {
+      const candidate = candidates[i];
+      const hitbox = candidate.querySelector('.hitbox') || candidate;
+      if (!hitbox || !hitbox.object3D) continue;
+
+      this.bounds.setFromObject(hitbox.object3D);
+      this.closestPoint.copy(this.worldHandPos).clamp(this.bounds.min, this.bounds.max);
+
+      const distance = this.worldHandPos.distanceTo(this.closestPoint);
+      if (distance <= this.data.handRadius && distance < bestDistance) {
+        bestTarget = candidate;
+        bestDistance = distance;
+      }
+    }
+
+    return bestTarget;
+  }
+});
+</script>
+
+<style>
+html, body {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: Arial, sans-serif;
+}
+</style>
 </head>
 <body>
 
-<a-scene background="color: #cfeaff">
+<a-scene
+  background="color: #cfeaff"
+  renderer="colorManagement: true; antialias: true"
+  vr-mode-ui="enabled: true">
 
 <!-- Himmel -->
 <a-sky color="#87CEEB"></a-sky>
@@ -25,86 +276,103 @@
   <a-asset-item id="mgcl2" src="MgCl2.glb"></a-asset-item>
   <a-asset-item id="imidazol" src="Imidazol.glb"></a-asset-item>
   <a-asset-item id="bodipy" src="BODIPY.glb"></a-asset-item>
-
   <canvas id="gridCanvas" width="128" height="128"></canvas>
 </a-assets>
 
 <!-- Spieler mit Hand-Steuerung -->
-<a-entity id="rig" movement-controls="speed:0.2">
-  <!-- Kamera -->
-  <a-entity id="camera" camera position="0 1.6 0" look-controls></a-entity>
-
-  <!-- Linke Hand -->
-  <a-entity id="leftHand" 
-            hand-controls="hand: left" 
-            super-hands="grabStartButtons: gripdown; grabEndButtons: gripup"
-            sphere-collider="objects: .interactable">
+<a-entity id="rig" movement-controls="speed: 0.2">
+  <a-entity id="camera" camera position="0 1.6 0" look-controls>
+    <a-cursor rayOrigin="mouse" fuse="false" material="color: #333333"></a-cursor>
   </a-entity>
-  
-  <!-- Rechte Hand -->
-  <a-entity id="rightHand" 
-            hand-controls="hand: right" 
-            super-hands="grabStartButtons: gripdown; grabEndButtons: gripup"
-            sphere-collider="objects: .interactable">
+
+  <a-entity
+    id="leftHand"
+    hand-controls="hand: left; handModelStyle: lowPoly; color: #335CFF"
+    hand-grabber="hand: left; handRadius: 0.23; grabEvents: gripdown,triggerdown,pinchstarted; releaseEvents: gripup,triggerup,pinchended">
+    <a-sphere radius="0.025" color="#335CFF" opacity="0.45"></a-sphere>
+  </a-entity>
+
+  <a-entity
+    id="rightHand"
+    hand-controls="hand: right; handModelStyle: lowPoly; color: #FF4B4B"
+    hand-grabber="hand: right; handRadius: 0.23; grabEvents: gripdown,triggerdown,pinchstarted; releaseEvents: gripup,triggerup,pinchended">
+    <a-sphere radius="0.025" color="#FF4B4B" opacity="0.45"></a-sphere>
   </a-entity>
 </a-entity>
 
 <!-- Boden -->
-<a-plane position="0 0 0" rotation="-90 0 0" width="200" height="200" material="src: #gridCanvas; repeat: 200 200; shader: flat"></a-plane>
+<a-plane
+  position="0 0 0"
+  rotation="-90 0 0"
+  width="200"
+  height="200"
+  material="src: #gridCanvas; repeat: 200 200; shader: flat">
+</a-plane>
 
-<!-- Interaktive Strukturen -->
+<!-- Kurzanleitung -->
+<a-entity position="0 2.3 -2.5">
+  <a-plane width="4.2" height="1.25" color="#ffffff" opacity="0.72"></a-plane>
+  <a-text
+    value="Grip oder Trigger: Modell greifen und bewegen\nBeide Hände am selben Modell: Größe ändern"
+    align="center"
+    color="#10263d"
+    width="3.9"
+    position="0 0 0.01">
+  </a-text>
+</a-entity>
+
 <!-- Diamant -->
-<a-entity position="0 3 -10">
-  <a-entity class="interactable" grabbable stretchable draggable>
-    <a-box depth="3" height="3" width="3" visible="false"></a-box>
+<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="0 3 -10">
+  <a-entity class="manip-body">
+    <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#diamant" scale="0.6 0.6 0.6"></a-entity>
   </a-entity>
-  <a-text value="Diamant" position="0 2 0" align="center" color="black" look-at="#camera"></a-text>
+  <a-text value="Diamant" position="0 2 0" align="center" color="black" billboard></a-text>
 </a-entity>
 
 <!-- Graphit -->
-<a-entity position="8.66 3 -5">
-  <a-entity class="interactable" grabbable stretchable draggable>
-    <a-box depth="3" height="3" width="3" visible="false"></a-box>
+<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="8.66 3 -5">
+  <a-entity class="manip-body">
+    <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#graphit" scale="0.6 0.6 0.6"></a-entity>
   </a-entity>
-  <a-text value="Graphit" position="0 2 0" align="center" color="black" look-at="#camera"></a-text>
+  <a-text value="Graphit" position="0 2 0" align="center" color="black" billboard></a-text>
 </a-entity>
 
 <!-- Eis -->
-<a-entity position="8.66 1 5">
-  <a-entity class="interactable" grabbable stretchable draggable>
-    <a-box depth="3" height="3" width="3" visible="false"></a-box>
+<a-entity class="interactable" manipulable="minScale: 0.35; maxScale: 2.5" position="8.66 1 5">
+  <a-entity class="manip-body">
+    <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#eis" scale="50 50 50"></a-entity>
   </a-entity>
-  <a-text value="Eis" position="0 2 0" align="center" color="black" look-at="#camera"></a-text>
+  <a-text value="Eis" position="0 2 0" align="center" color="black" billboard></a-text>
 </a-entity>
 
 <!-- MgCl2 -->
-<a-entity position="0 3 10">
-  <a-entity class="interactable" grabbable stretchable draggable>
-    <a-box depth="3" height="3" width="3" visible="false"></a-box>
+<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="0 3 10">
+  <a-entity class="manip-body">
+    <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#mgcl2" scale="0.6 0.6 0.6"></a-entity>
   </a-entity>
-  <a-text value="MgCl2" position="0 2 0" align="center" color="black" look-at="#camera"></a-text>
+  <a-text value="MgCl2" position="0 2 0" align="center" color="black" billboard></a-text>
 </a-entity>
 
 <!-- Imidazol -->
-<a-entity position="-8.66 3 5">
-  <a-entity class="interactable" grabbable stretchable draggable>
-    <a-box depth="3" height="3" width="3" visible="false"></a-box>
+<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="-8.66 3 5">
+  <a-entity class="manip-body">
+    <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#imidazol" scale="0.6 0.6 0.6"></a-entity>
   </a-entity>
-  <a-text value="Imidazol" position="0 2 0" align="center" color="black" look-at="#camera"></a-text>
+  <a-text value="Imidazol" position="0 2 0" align="center" color="black" billboard></a-text>
 </a-entity>
 
 <!-- BODIPY -->
-<a-entity position="-8.66 3 -5">
-  <a-entity class="interactable" grabbable stretchable draggable>
-    <a-box depth="3" height="3" width="3" visible="false"></a-box>
+<a-entity class="interactable" manipulable="minScale: 0.45; maxScale: 3.0" position="-8.66 3 -5">
+  <a-entity class="manip-body">
+    <a-box class="hitbox" width="3" height="3" depth="3" material="transparent: true; opacity: 0.0; depthWrite: false"></a-box>
     <a-entity gltf-model="#bodipy" scale="0.5 0.5 0.5"></a-entity>
   </a-entity>
-  <a-text value="BODIPY" position="0 2 0" align="center" color="black" look-at="#camera"></a-text>
+  <a-text value="BODIPY" position="0 2 0" align="center" color="black" billboard></a-text>
 </a-entity>
 
 <!-- Licht -->
@@ -117,11 +385,11 @@
 <script>
   const canvas = document.getElementById('gridCanvas');
   const ctx = canvas.getContext('2d');
-  ctx.fillStyle = "white";
-  ctx.fillRect(0,0,128,128);
-  ctx.strokeStyle = "#00FF00";
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, 128, 128);
+  ctx.strokeStyle = '#00FF00';
   ctx.lineWidth = 6;
-  ctx.strokeRect(0,0,128,128);
+  ctx.strokeRect(0, 0, 128, 128);
 </script>
 
 </body>
